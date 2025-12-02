@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ScanResponse, SymbolCode } from "@/lib/trading/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,13 @@ function formatPrice(
 }
 
 type ViewKey = "dashboard" | "signals" | "settings";
+const VIEW_KEYS: ViewKey[] = ["dashboard", "signals", "settings"];
+
+function parseViewParam(value: string | null): ViewKey | null {
+  if (!value) return null;
+  const lower = value.toLowerCase();
+  return VIEW_KEYS.includes(lower as ViewKey) ? (lower as ViewKey) : null;
+}
 
 function navItemClasses(isActive: boolean): string {
   return [
@@ -38,10 +46,33 @@ function navItemClasses(isActive: boolean): string {
 }
 
 export default function TradingDashboard() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [signals, setSignals] = useState<ScanResponse[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("dashboard");
+
+  const buildUrlForView = (view: ViewKey) => {
+    const params = new URLSearchParams(searchParams?.toString());
+    params.set("view", view);
+    const query = params.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  };
+
+  const handleViewChange = (view: ViewKey) => {
+    setActiveView(view);
+
+    const nextUrl = buildUrlForView(view);
+    const currentQuery = searchParams?.toString();
+    const currentUrl = currentQuery ? `${pathname}?${currentQuery}` : pathname;
+
+    if (nextUrl !== currentUrl) {
+      router.push(nextUrl);
+    }
+  };
 
   async function fetchScan() {
     setLoading(true);
@@ -71,6 +102,27 @@ export default function TradingDashboard() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    const viewFromUrl = parseViewParam(searchParams?.get("view"));
+
+    if (viewFromUrl) {
+      if (viewFromUrl !== activeView) {
+        setActiveView(viewFromUrl);
+      }
+      return;
+    }
+
+    if (searchParams) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("view", "dashboard");
+      const query = params.toString();
+      const nextUrl = query ? `${pathname}?${query}` : pathname;
+      router.replace(nextUrl);
+    } else if (activeView !== "dashboard") {
+      setActiveView("dashboard");
+    }
+  }, [activeView, pathname, router, searchParams]);
 
   useEffect(() => {
     // Initial fetch on mount
@@ -137,7 +189,7 @@ export default function TradingDashboard() {
           <button
             type="button"
             className={navItemClasses(activeView === "dashboard")}
-            onClick={() => setActiveView("dashboard")}
+            onClick={() => handleViewChange("dashboard")}
             disabled={loading}
           >
             Dashboard
@@ -145,7 +197,7 @@ export default function TradingDashboard() {
           <button
             type="button"
             className={navItemClasses(activeView === "signals")}
-            onClick={() => setActiveView("signals")}
+            onClick={() => handleViewChange("signals")}
             disabled={loading}
           >
             Signals
@@ -153,7 +205,7 @@ export default function TradingDashboard() {
           <button
             type="button"
             className={navItemClasses(activeView === "settings")}
-            onClick={() => setActiveView("settings")}
+            onClick={() => handleViewChange("settings")}
             disabled={loading}
           >
             Settings
@@ -197,14 +249,14 @@ export default function TradingDashboard() {
         {/* Mobile nav (simple pills) */}
         <div className="md:hidden px-4 pt-3 flex gap-2 text-xs">
           {(["dashboard", "signals", "settings"] as ViewKey[]).map(
-            (view) => (
-              <button
-                key={view}
-                type="button"
-                onClick={() => setActiveView(view)}
-                className={[
-                  "px-3 py-1 rounded-full border",
-                  activeView === view
+              (view) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => handleViewChange(view)}
+                  className={[
+                    "px-3 py-1 rounded-full border",
+                    activeView === view
                     ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
                     : "border-slate-700 bg-slate-900/40 text-slate-300",
                   loading && "opacity-50 cursor-not-allowed",

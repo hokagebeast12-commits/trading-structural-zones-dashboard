@@ -1,19 +1,45 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { scanMarket } from '@/lib/trading/engine';
+import { NextResponse } from "next/server";
+import { scanMarket } from "@/lib/trading/engine";
+import type { ScanResponse } from "@/lib/trading/types";
 
-export async function GET(request: NextRequest) {
+/**
+ * Helper to run the market scan and normalize the result
+ * so the API always returns { signals: ScanResponse[] }.
+ */
+async function runScan(): Promise<ScanResponse[]> {
+  const result = await scanMarket();
+
+  // If scanMarket already returns an array, use it directly.
+  if (Array.isArray(result)) {
+    return result as ScanResponse[];
+  }
+
+  // Otherwise, wrap the single ScanResponse in an array.
+  return [result as ScanResponse];
+}
+
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const date = searchParams.get('date') || undefined;
-    
-    const result = await scanMarket(date);
-    
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error('Scan API error:', error);
+    const signals = await runScan();
+    return NextResponse.json({ signals });
+  } catch (err) {
+    console.error("Error in GET /api/scan:", err);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Scan failed" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const signals = await runScan();
+    return NextResponse.json({ signals });
+  } catch (err) {
+    console.error("Error in POST /api/scan:", err);
+    return NextResponse.json(
+      { error: "Scan failed" },
+      { status: 500 },
     );
   }
 }

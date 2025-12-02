@@ -17,7 +17,10 @@ const DECIMALS: Record<string, number> = {
   GBPJPY: 3,
 };
 
-function formatPrice(symbol: string | SymbolCode, price: number | null | undefined) {
+function formatPrice(
+  symbol: string | SymbolCode,
+  price: number | null | undefined,
+) {
   if (price == null || Number.isNaN(price)) return "-";
   const d = DECIMALS[String(symbol)] ?? 5;
   return price.toFixed(d);
@@ -80,7 +83,7 @@ export default function TradingDashboard() {
       <aside className="hidden md:flex md:flex-col w-[260px] border-r border-slate-800 bg-[#050816] p-4">
         <div className="mb-8">
           <div className="text-xs uppercase tracking-[0.2em] text-slate-500">
-            Trading Desk
+            TRADING DESK
           </div>
           <div className="mt-2 text-lg font-semibold text-slate-100">
             Structural Scanner
@@ -219,7 +222,7 @@ export default function TradingDashboard() {
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs">
                             <thead>
-                              <tr className="bg-slate-900/70 text-slate-300">
+                              <tr className="bg-slate-900 text-slate-100">
                                 <th className="px-2 py-1 text-left font-semibold">
                                   Model
                                 </th>
@@ -247,23 +250,27 @@ export default function TradingDashboard() {
                               {trades.map((t, idx) => (
                                 <tr
                                   key={idx}
-                                  className="border-b border-slate-800 bg-slate-900/40 hover:bg-slate-800/70"
+                                  className="border-b border-slate-800 bg-slate-800 text-slate-100 hover:bg-slate-700"
                                 >
-                                  <td className="px-2 py-1">{t.model}</td>
-                                  <td className="px-2 py-1">{t.direction}</td>
-                                  <td className="px-2 py-1 text-right">
+                                  <td className="px-2 py-1 font-medium">
+                                    {t.model}
+                                  </td>
+                                  <td className="px-2 py-1 font-medium">
+                                    {t.direction}
+                                  </td>
+                                  <td className="px-2 py-1 text-right font-medium">
                                     {formatPrice(symbol, t.entry)}
                                   </td>
-                                  <td className="px-2 py-1 text-right">
+                                  <td className="px-2 py-1 text-right font-medium">
                                     {formatPrice(symbol, t.stop)}
                                   </td>
-                                  <td className="px-2 py-1 text-right">
+                                  <td className="px-2 py-1 text-right font-medium">
                                     {formatPrice(symbol, t.tp1)}
                                   </td>
-                                  <td className="px-2 py-1 text-right">
+                                  <td className="px-2 py-1 text-right font-medium">
                                     {t.rr?.toFixed(2) ?? "-"}
                                   </td>
-                                  <td className="px-2 py-1">
+                                  <td className="px-2 py-1 font-medium">
                                     {t.stopType ?? "-"}
                                   </td>
                                 </tr>

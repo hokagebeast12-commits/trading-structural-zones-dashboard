@@ -182,7 +182,8 @@ function useToast() {
         listeners.splice(index, 1)
       }
     }
-  }, [state])
+    // setState is stable from React; no external deps are needed here.
+  }, [])
 
   return {
     ...state,

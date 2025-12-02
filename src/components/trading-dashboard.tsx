@@ -22,6 +22,8 @@ const DECIMALS: Record<string, number> = {
   GBPJPY: 3,
 };
 
+const SYMBOLS_LIST: SymbolCode[] = ["XAUUSD", "EURUSD", "GBPUSD", "GBPJPY"];
+
 function formatPrice(
   symbol: string | SymbolCode,
   price: number | null | undefined,
@@ -76,6 +78,32 @@ export default function TradingDashboard() {
   );
   const [trendFilter, setTrendFilter] = useState<string | "all">("all");
   const [statusFilter, setStatusFilter] = useState<string | "all">("all");
+  const [scanSettings, setScanSettings] = useState<ScanSettings>(() => ({
+    symbols: SYMBOLS_LIST.reduce(
+      (acc, symbol) => ({ ...acc, [symbol]: true }),
+      {} as Record<SymbolCode, boolean>,
+    ),
+    minRr: 2.0,
+    spreadCap: 1.0,
+    atrWindow: 20,
+    structureLookback: 60,
+  }));
+
+  const symbolsList = useMemo(() => SYMBOLS_LIST, []);
+  const scanPayload = useMemo(
+    () => ({
+      symbols: symbolsList.filter((symbol) => scanSettings.symbols[symbol]),
+      filters: {
+        minRr: scanSettings.minRr,
+        spreadCap: scanSettings.spreadCap,
+      },
+      params: {
+        atrWindow: scanSettings.atrWindow,
+        structureLookback: scanSettings.structureLookback,
+      },
+    }),
+    [scanSettings, symbolsList],
+  );
 
   async function fetchScan() {
     setLoading(true);
@@ -132,6 +160,16 @@ export default function TradingDashboard() {
       setActiveView("dashboard");
     }
   }, [activeView, pathname, router, searchParams]);
+
+  const handleViewChange = (view: ViewKey) => {
+    setActiveView(view);
+
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("view", view);
+    const query = params.toString();
+    const nextUrl = query ? `${pathname}?${query}` : pathname;
+    router.replace(nextUrl);
+  };
 
   useEffect(() => {
     // Initial fetch on mount

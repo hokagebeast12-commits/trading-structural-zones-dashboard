@@ -75,7 +75,6 @@ export default function TradingDashboard() {
   useEffect(() => {
     // Initial fetch on mount
     fetchScan();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const latestScan = signals && signals.length > 0 ? signals[0] : null;

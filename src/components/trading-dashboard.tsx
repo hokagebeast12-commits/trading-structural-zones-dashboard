@@ -220,28 +220,28 @@ export default function TradingDashboard() {
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
+                          <table className="w-full text-[13px]">
                             <thead>
-                              <tr className="bg-slate-900 text-slate-100">
-                                <th className="px-2 py-1 text-left font-semibold">
+                              <tr className="bg-slate-800 text-slate-50">
+                                <th className="px-2 py-2 text-left font-semibold">
                                   Model
                                 </th>
-                                <th className="px-2 py-1 text-left font-semibold">
+                                <th className="px-2 py-2 text-left font-semibold">
                                   Dir
                                 </th>
-                                <th className="px-2 py-1 text-right font-semibold">
+                                <th className="px-2 py-2 text-right font-semibold">
                                   Entry
                                 </th>
-                                <th className="px-2 py-1 text-right font-semibold">
+                                <th className="px-2 py-2 text-right font-semibold">
                                   Stop
                                 </th>
-                                <th className="px-2 py-1 text-right font-semibold">
+                                <th className="px-2 py-2 text-right font-semibold">
                                   TP1
                                 </th>
-                                <th className="px-2 py-1 text-right font-semibold">
+                                <th className="px-2 py-2 text-right font-semibold">
                                   R:R
                                 </th>
-                                <th className="px-2 py-1 text-left font-semibold">
+                                <th className="px-2 py-2 text-left font-semibold">
                                   Stop Type
                                 </th>
                               </tr>
@@ -250,27 +250,27 @@ export default function TradingDashboard() {
                               {trades.map((t, idx) => (
                                 <tr
                                   key={idx}
-                                  className="border-b border-slate-800 bg-slate-800 text-slate-100 hover:bg-slate-700"
+                                  className="border-b border-slate-700 bg-slate-900 text-slate-50 hover:bg-slate-800"
                                 >
-                                  <td className="px-2 py-1 font-medium">
+                                  <td className="px-2 py-1.5 font-semibold">
                                     {t.model}
                                   </td>
-                                  <td className="px-2 py-1 font-medium">
+                                  <td className="px-2 py-1.5 font-semibold">
                                     {t.direction}
                                   </td>
-                                  <td className="px-2 py-1 text-right font-medium">
+                                  <td className="px-2 py-1.5 text-right font-semibold">
                                     {formatPrice(symbol, t.entry)}
                                   </td>
-                                  <td className="px-2 py-1 text-right font-medium">
+                                  <td className="px-2 py-1.5 text-right font-semibold">
                                     {formatPrice(symbol, t.stop)}
                                   </td>
-                                  <td className="px-2 py-1 text-right font-medium">
+                                  <td className="px-2 py-1.5 text-right font-semibold">
                                     {formatPrice(symbol, t.tp1)}
                                   </td>
-                                  <td className="px-2 py-1 text-right font-medium">
+                                  <td className="px-2 py-1.5 text-right font-semibold">
                                     {t.rr?.toFixed(2) ?? "-"}
                                   </td>
-                                  <td className="px-2 py-1 font-medium">
+                                  <td className="px-2 py-1.5 font-semibold">
                                     {t.stopType ?? "-"}
                                   </td>
                                 </tr>

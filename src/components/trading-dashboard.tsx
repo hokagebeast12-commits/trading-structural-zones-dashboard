@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ScanResponse, SymbolCode } from "@/lib/trading/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +10,10 @@ import {
   CardTitle,
   CardContent,
 } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 const DECIMALS: Record<string, number> = {
   XAUUSD: 2,
@@ -27,6 +32,21 @@ function formatPrice(
 }
 
 type ViewKey = "dashboard" | "signals" | "settings";
+const VIEW_KEYS: ViewKey[] = ["dashboard", "signals", "settings"];
+
+function parseViewParam(value: string | null): ViewKey | null {
+  if (!value) return null;
+  const lower = value.toLowerCase();
+  return VIEW_KEYS.includes(lower as ViewKey) ? (lower as ViewKey) : null;
+}
+
+type ScanSettings = {
+  symbols: Record<SymbolCode, boolean>;
+  minRr: number;
+  spreadCap: number;
+  atrWindow: number;
+  structureLookback: number;
+};
 
 function navItemClasses(isActive: boolean): string {
   return [
@@ -38,6 +58,10 @@ function navItemClasses(isActive: boolean): string {
 }
 
 export default function TradingDashboard() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [signals, setSignals] = useState<ScanResponse[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -58,7 +82,13 @@ export default function TradingDashboard() {
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/scan");
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(scanPayload),
+      });
       if (!res.ok) {
         setErrorMessage("Scan failed – please try again.");
         setSignals(null);
@@ -83,14 +113,33 @@ export default function TradingDashboard() {
   }
 
   useEffect(() => {
+    const viewFromUrl = parseViewParam(searchParams?.get("view"));
+
+    if (viewFromUrl) {
+      if (viewFromUrl !== activeView) {
+        setActiveView(viewFromUrl);
+      }
+      return;
+    }
+
+    if (searchParams) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("view", "dashboard");
+      const query = params.toString();
+      const nextUrl = query ? `${pathname}?${query}` : pathname;
+      router.replace(nextUrl);
+    } else if (activeView !== "dashboard") {
+      setActiveView("dashboard");
+    }
+  }, [activeView, pathname, router, searchParams]);
+
+  useEffect(() => {
     // Initial fetch on mount
     fetchScan();
   }, []);
 
   const latestScan = signals && signals.length > 0 ? signals[0] : null;
   const lastScanDate = latestScan?.date ?? null;
-
-  const symbolsList: SymbolCode[] = ["XAUUSD", "EURUSD", "GBPJPY", "GBPUSD"];
 
   const hasAnyTrades =
     !!latestScan &&
@@ -236,7 +285,7 @@ export default function TradingDashboard() {
           <button
             type="button"
             className={navItemClasses(activeView === "dashboard")}
-            onClick={() => setActiveView("dashboard")}
+            onClick={() => handleViewChange("dashboard")}
             disabled={loading}
           >
             Dashboard
@@ -244,7 +293,7 @@ export default function TradingDashboard() {
           <button
             type="button"
             className={navItemClasses(activeView === "signals")}
-            onClick={() => setActiveView("signals")}
+            onClick={() => handleViewChange("signals")}
             disabled={loading}
           >
             Signals
@@ -252,7 +301,7 @@ export default function TradingDashboard() {
           <button
             type="button"
             className={navItemClasses(activeView === "settings")}
-            onClick={() => setActiveView("settings")}
+            onClick={() => handleViewChange("settings")}
             disabled={loading}
           >
             Settings
@@ -294,32 +343,34 @@ export default function TradingDashboard() {
         </header>
 
         {/* Mobile nav (simple pills) */}
-        <div className="md:hidden px-4 pt-3 flex gap-2 text-xs">
-          {(["dashboard", "signals", "settings"] as ViewKey[]).map(
-            (view) => (
-              <button
-                key={view}
-                type="button"
-                onClick={() => setActiveView(view)}
-                className={[
-                  "px-3 py-1 rounded-full border",
-                  activeView === view
-                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
-                    : "border-slate-700 bg-slate-900/40 text-slate-300",
-                  loading && "opacity-50 cursor-not-allowed",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                disabled={loading}
-              >
-                {view === "dashboard"
-                  ? "Dashboard"
-                  : view === "signals"
-                  ? "Signals"
-                  : "Settings"}
-              </button>
-            ),
-          )}
+        <div className="md:hidden sticky top-0 z-10 bg-[#050816] px-4 pt-3 pb-3">
+          <div className="flex gap-2 text-xs">
+            {(["dashboard", "signals", "settings"] as ViewKey[]).map(
+              (view) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => handleViewChange(view)}
+                  className={[
+                    "px-3 py-1 rounded-full border",
+                    activeView === view
+                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
+                      : "border-slate-700 bg-slate-900/40 text-slate-300",
+                    loading && "opacity-50 cursor-not-allowed",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  disabled={loading}
+                >
+                  {view === "dashboard"
+                    ? "Dashboard"
+                    : view === "signals"
+                    ? "Signals"
+                    : "Settings"}
+                </button>
+              ),
+            )}
+          </div>
         </div>
 
         {/* Content */}
@@ -738,27 +789,205 @@ export default function TradingDashboard() {
             </section>
           )}
 
-          {/* SETTINGS VIEW (placeholder for now) */}
+          {/* SETTINGS VIEW */}
           {activeView === "settings" && (
-            <section className="space-y-3">
-              <div>
+            <section className="space-y-4 md:space-y-6">
+              <div className="space-y-1">
                 <h2 className="text-lg font-semibold">Settings</h2>
                 <p className="text-xs md:text-sm text-slate-400">
-                  Configure scan parameters and symbol preferences. (UI
-                  stub – wiring to the engine can be added next.)
+                  Configure scan inputs before sending them to the engine.
+                  Adjust symbols, trade-quality filters, and data windows.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-6 text-sm text-slate-300">
-                <p className="mb-3">
-                  Coming next, this panel can include:
-                </p>
-                <ul className="list-disc list-inside space-y-1 text-xs md:text-sm text-slate-400">
-                  <li>Enable / disable symbols for scanning.</li>
-                  <li>Minimum R:R threshold for valid trades.</li>
-                  <li>Maximum allowed spread filter.</li>
-                  <li>Lookback window for ATR and structure.</li>
-                </ul>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card className="border border-slate-800 bg-slate-900/40 shadow-[0_0_0_1px_rgba(15,23,42,0.7)]">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Symbols</CardTitle>
+                    <p className="text-xs text-slate-400">
+                      Toggle which pairs are included in the next scan.
+                      Disabled symbols will be skipped in the request
+                      payload.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {symbolsList.map((symbol) => (
+                        <label
+                          key={`symbol-toggle-${symbol}`}
+                          className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm"
+                        >
+                          <div className="space-y-0.5">
+                            <div className="font-semibold">{symbol}</div>
+                            <p className="text-[11px] text-slate-400">
+                              Include {symbol} in the scan payload.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={scanSettings.symbols[symbol]}
+                            onCheckedChange={(checked) =>
+                              setScanSettings((prev) => ({
+                                ...prev,
+                                symbols: {
+                                  ...prev.symbols,
+                                  [symbol]: checked,
+                                },
+                              }))
+                            }
+                            aria-label={`Toggle ${symbol}`}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      The scan request will only include enabled symbols,
+                      matching the engine&apos;s expected symbol list.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border border-slate-800 bg-slate-900/40 shadow-[0_0_0_1px_rgba(15,23,42,0.7)]">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Trade Filters</CardTitle>
+                    <p className="text-xs text-slate-400">
+                      Control minimum reward-to-risk and cap spreads
+                      before trades are surfaced.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm font-semibold">
+                        <span>Minimum R:R</span>
+                        <span className="text-emerald-300">
+                          {scanSettings.minRr.toFixed(1)}x
+                        </span>
+                      </div>
+                      <Slider
+                        value={[scanSettings.minRr]}
+                        min={1}
+                        max={5}
+                        step={0.1}
+                        onValueChange={(value) =>
+                          setScanSettings((prev) => ({
+                            ...prev,
+                            minRr: value[0] ?? prev.minRr,
+                          }))
+                        }
+                      />
+                      <p className="text-[11px] text-slate-400">
+                        Ignore candidates that don&apos;t meet the minimum
+                        reward-to-risk.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm font-semibold">
+                        <span>Spread cap (pips)</span>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.1"
+                          className="w-24 h-9 bg-slate-950/60 border-slate-800 text-right"
+                          value={scanSettings.spreadCap}
+                          onChange={(e) =>
+                            setScanSettings((prev) => ({
+                              ...prev,
+                              spreadCap: Number(e.target.value) || 0,
+                            }))
+                          }
+                          aria-label="Spread cap in pips"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        Maximum spread allowed for entries. Candidates with
+                        wider spreads will be filtered out.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card className="border border-slate-800 bg-slate-900/40 shadow-[0_0_0_1px_rgba(15,23,42,0.7)]">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">ATR & Lookback</CardTitle>
+                    <p className="text-xs text-slate-400">
+                      Control volatility windows for ATR and structure
+                      detection.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm font-semibold">
+                        <Label htmlFor="atr-window">ATR window</Label>
+                        <div className="flex items-center gap-2 text-xs">
+                          <Input
+                            id="atr-window"
+                            type="number"
+                            inputMode="numeric"
+                            className="w-20 h-9 bg-slate-950/60 border-slate-800 text-right"
+                            value={scanSettings.atrWindow}
+                            onChange={(e) =>
+                              setScanSettings((prev) => ({
+                                ...prev,
+                                atrWindow: Number(e.target.value) || prev.atrWindow,
+                              }))
+                            }
+                            aria-label="ATR window"
+                          />
+                          <span className="text-slate-400">days</span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        Number of bars used to compute ATR for sizing and
+                        proximity calculations.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm font-semibold">
+                        <Label htmlFor="structure-lookback">Structure lookback</Label>
+                        <div className="flex items-center gap-2 text-xs">
+                          <Input
+                            id="structure-lookback"
+                            type="number"
+                            inputMode="numeric"
+                            className="w-20 h-9 bg-slate-950/60 border-slate-800 text-right"
+                            value={scanSettings.structureLookback}
+                            onChange={(e) =>
+                              setScanSettings((prev) => ({
+                                ...prev,
+                                structureLookback:
+                                  Number(e.target.value) || prev.structureLookback,
+                              }))
+                            }
+                            aria-label="Structure lookback"
+                          />
+                          <span className="text-slate-400">days</span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        Days of history to search for orderblocks, liquidity
+                        sweeps, and structural reference points.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border border-slate-800 bg-slate-900/40 shadow-[0_0_0_1px_rgba(15,23,42,0.7)]">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Payload preview</CardTitle>
+                    <p className="text-xs text-slate-400">
+                      These values are sent to the POST /api/scan endpoint,
+                      ready to be wired to the scan engine.
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <pre className="rounded-lg border border-slate-800 bg-black/40 p-3 text-[11px] leading-relaxed text-emerald-100">
+{JSON.stringify(scanPayload, null, 2)}
+                    </pre>
+                  </CardContent>
+                </Card>
               </div>
             </section>
           )}

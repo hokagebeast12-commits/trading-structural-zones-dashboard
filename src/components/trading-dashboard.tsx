@@ -66,54 +66,16 @@ export default function TradingDashboard() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("dashboard");
-  const symbolsList: SymbolCode[] = ["XAUUSD", "EURUSD", "GBPJPY", "GBPUSD"];
-  const [scanSettings, setScanSettings] = useState<ScanSettings>({
-    symbols: symbolsList.reduce(
-      (acc, symbol) => ({ ...acc, [symbol]: true }),
-      {} as Record<SymbolCode, boolean>,
-    ),
-    minRr: 2,
-    spreadCap: 1.5,
-    atrWindow: 20,
-    structureLookback: 60,
-  });
-
-  const scanPayload = useMemo(() => {
-    const enabledSymbols = (Object.keys(scanSettings.symbols) as SymbolCode[]).filter(
-      (symbol) => scanSettings.symbols[symbol],
-    );
-
-    return {
-      symbols: enabledSymbols,
-      filters: {
-        min_rr: scanSettings.minRr,
-        spread_cap: scanSettings.spreadCap,
-      },
-      windows: {
-        atr: scanSettings.atrWindow,
-        structure: scanSettings.structureLookback,
-      },
-    };
-  }, [scanSettings]);
-
-  const buildUrlForView = (view: ViewKey) => {
-    const params = new URLSearchParams(searchParams?.toString());
-    params.set("view", view);
-    const query = params.toString();
-    return query ? `${pathname}?${query}` : pathname;
-  };
-
-  const handleViewChange = (view: ViewKey) => {
-    setActiveView(view);
-
-    const nextUrl = buildUrlForView(view);
-    const currentQuery = searchParams?.toString();
-    const currentUrl = currentQuery ? `${pathname}?${currentQuery}` : pathname;
-
-    if (nextUrl !== currentUrl) {
-      router.push(nextUrl);
-    }
-  };
+  const [sortKey, setSortKey] = useState<
+    "symbol" | "direction" | "rr" | "trend" | "status"
+  >("symbol");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [symbolFilter, setSymbolFilter] = useState<SymbolCode | "all">("all");
+  const [directionFilter, setDirectionFilter] = useState<string | "all">(
+    "all",
+  );
+  const [trendFilter, setTrendFilter] = useState<string | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<string | "all">("all");
 
   async function fetchScan() {
     setLoading(true);
@@ -213,6 +175,95 @@ export default function TradingDashboard() {
 
     return rows;
   }, [latestScan]);
+
+  const symbolOptions = useMemo(() => {
+    const options = new Set<SymbolCode>();
+    allTrades.forEach((row) => options.add(row.symbol));
+    return Array.from(options);
+  }, [allTrades]);
+
+  const directionOptions = useMemo(() => {
+    const options = new Set<string>();
+    allTrades.forEach((row) => {
+      if (row.trade.direction) options.add(row.trade.direction);
+    });
+    return Array.from(options);
+  }, [allTrades]);
+
+  const trendOptions = useMemo(() => {
+    const options = new Set<string>();
+    allTrades.forEach((row) => {
+      if (row.trend) options.add(row.trend);
+    });
+    return Array.from(options);
+  }, [allTrades]);
+
+  const statusOptions = useMemo(() => {
+    const options = new Set<string>();
+    allTrades.forEach((row) => {
+      if (row.trade.status) options.add(row.trade.status);
+    });
+    return Array.from(options);
+  }, [allTrades]);
+
+  const filteredTrades = useMemo(() => {
+    return allTrades.filter((row) => {
+      if (symbolFilter !== "all" && row.symbol !== symbolFilter) return false;
+      if (
+        directionFilter !== "all" &&
+        row.trade.direction?.toLowerCase() !== directionFilter.toLowerCase()
+      )
+        return false;
+      if (trendFilter !== "all" && row.trend !== trendFilter) return false;
+      if (statusFilter !== "all" && row.trade.status !== statusFilter)
+        return false;
+      return true;
+    });
+  }, [allTrades, directionFilter, statusFilter, symbolFilter, trendFilter]);
+
+  const sortedTrades = useMemo(() => {
+    const rows = [...filteredTrades];
+
+    rows.sort((a, b) => {
+      const dir = sortDirection === "asc" ? 1 : -1;
+
+      const getValue = (row: (typeof filteredTrades)[number]) => {
+        switch (sortKey) {
+          case "rr":
+            return row.trade.rr ?? Number.NEGATIVE_INFINITY;
+          case "direction":
+            return row.trade.direction?.toString().toLowerCase() ?? "";
+          case "trend":
+            return row.trend?.toLowerCase() ?? "";
+          case "status":
+            return row.trade.status?.toLowerCase() ?? "";
+          case "symbol":
+          default:
+            return row.symbol.toLowerCase();
+        }
+      };
+
+      const aValue = getValue(a);
+      const bValue = getValue(b);
+
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return (aValue - bValue) * dir;
+      }
+
+      return aValue.toString().localeCompare(bValue.toString()) * dir;
+    });
+
+    return rows;
+  }, [filteredTrades, sortDirection, sortKey]);
+
+  const toggleSort = (key: typeof sortKey) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  };
 
   return (
     <div
@@ -499,90 +550,240 @@ export default function TradingDashboard() {
                   Dashboard to generate signals.
                 </div>
               ) : (
-                <div
-                  className={`rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-3 overflow-x-auto ${loading ? "pointer-events-none opacity-50" : ""}`}
-                >
-                  <table className="w-full text-[13px]">
-                    <thead>
-                      <tr className="bg-slate-800 text-slate-50">
-                        <th className="px-2 py-2 text-left font-semibold">
-                          Symbol
-                        </th>
-                        <th className="px-2 py-2 text-left font-semibold">
-                          Model
-                        </th>
-                        <th className="px-2 py-2 text-left font-semibold">
-                          Dir
-                        </th>
-                        <th className="px-2 py-2 text-right font-semibold">
-                          Entry
-                        </th>
-                        <th className="px-2 py-2 text-right font-semibold">
-                          Stop
-                        </th>
-                        <th className="px-2 py-2 text-right font-semibold">
-                          TP1
-                        </th>
-                        <th className="px-2 py-2 text-right font-semibold">
-                          R:R
-                        </th>
-                        <th className="px-2 py-2 text-left font-semibold">
-                          Stop Type
-                        </th>
-                        <th className="px-2 py-2 text-left font-semibold">
-                          Trend
-                        </th>
-                        <th className="px-2 py-2 text-left font-semibold">
-                          Location
-                        </th>
-                        <th className="px-2 py-2 text-left font-semibold">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allTrades.map((row, idx) => (
-                        <tr
-                          key={idx}
-                          className="border-b border-slate-700 bg-slate-900 text-slate-50 hover:bg-slate-800"
-                        >
-                          <td className="px-2 py-1.5 font-semibold">
-                            {row.symbol}
-                          </td>
-                          <td className="px-2 py-1.5 font-semibold">
-                            {row.trade.model}
-                          </td>
-                          <td className="px-2 py-1.5 font-semibold">
-                            {row.trade.direction}
-                          </td>
-                          <td className="px-2 py-1.5 text-right font-semibold">
-                            {formatPrice(row.symbol, row.trade.entry)}
-                          </td>
-                          <td className="px-2 py-1.5 text-right font-semibold">
-                            {formatPrice(row.symbol, row.trade.stop)}
-                          </td>
-                          <td className="px-2 py-1.5 text-right font-semibold">
-                            {formatPrice(row.symbol, row.trade.tp1)}
-                          </td>
-                          <td className="px-2 py-1.5 text-right font-semibold">
-                            {row.trade.rr?.toFixed(2) ?? "-"}
-                          </td>
-                          <td className="px-2 py-1.5 font-semibold">
-                            {row.trade.stopType ?? "-"}
-                          </td>
-                          <td className="px-2 py-1.5 font-semibold">
-                            {row.trend ?? "-"}
-                          </td>
-                          <td className="px-2 py-1.5 font-semibold">
-                            {row.location ?? "-"}
-                          </td>
-                          <td className="px-2 py-1.5 font-semibold">
-                            {row.trade.status ?? "-"}
-                          </td>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    <label className="flex items-center gap-2 text-xs text-slate-300">
+                      <span>Symbol</span>
+                      <select
+                        value={symbolFilter}
+                        onChange={(e) =>
+                          setSymbolFilter(
+                            (e.target.value as SymbolCode | "all") ?? "all",
+                          )
+                        }
+                        className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100"
+                      >
+                        <option value="all">All</option>
+                        {symbolOptions.map((symbol) => (
+                          <option key={symbol} value={symbol}>
+                            {symbol}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-slate-300">
+                      <span>Direction</span>
+                      <select
+                        value={directionFilter}
+                        onChange={(e) =>
+                          setDirectionFilter((e.target.value as string) || "all")
+                        }
+                        className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100"
+                      >
+                        <option value="all">All</option>
+                        {directionOptions.map((dir) => (
+                          <option key={dir} value={dir}>
+                            {dir}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-slate-300">
+                      <span>Trend</span>
+                      <select
+                        value={trendFilter}
+                        onChange={(e) => setTrendFilter(e.target.value || "all")}
+                        className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100"
+                      >
+                        <option value="all">All</option>
+                        {trendOptions.map((trend) => (
+                          <option key={trend} value={trend}>
+                            {trend}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-slate-300">
+                      <span>Status</span>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value || "all")}
+                        className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100"
+                      >
+                        <option value="all">All</option>
+                        {statusOptions.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSymbolFilter("all");
+                        setDirectionFilter("all");
+                        setTrendFilter("all");
+                        setStatusFilter("all");
+                      }}
+                      className="text-xs text-slate-200 hover:text-slate-50"
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+
+                  <div
+                    className={`rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-3 overflow-x-auto ${loading ? "pointer-events-none opacity-50" : ""}`}
+                  >
+                    <table className="w-full text-[13px]">
+                      <thead>
+                        <tr className="bg-slate-800 text-slate-50">
+                          <th
+                            scope="col"
+                            className="px-2 py-2 text-left font-semibold"
+                            aria-sort={sortKey === "symbol" ? sortDirection : undefined}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleSort("symbol")}
+                              className="flex items-center gap-1"
+                            >
+                              Symbol
+                              {sortKey === "symbol" && (
+                                <span aria-hidden>{sortDirection === "asc" ? "▲" : "▼"}</span>
+                              )}
+                            </button>
+                          </th>
+                          <th className="px-2 py-2 text-left font-semibold">
+                            Model
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-2 py-2 text-left font-semibold"
+                            aria-sort={sortKey === "direction" ? sortDirection : undefined}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleSort("direction")}
+                              className="flex items-center gap-1"
+                            >
+                              Dir
+                              {sortKey === "direction" && (
+                                <span aria-hidden>{sortDirection === "asc" ? "▲" : "▼"}</span>
+                              )}
+                            </button>
+                          </th>
+                          <th className="px-2 py-2 text-right font-semibold">
+                            Entry
+                          </th>
+                          <th className="px-2 py-2 text-right font-semibold">
+                            Stop
+                          </th>
+                          <th className="px-2 py-2 text-right font-semibold">
+                            TP1
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-2 py-2 text-right font-semibold"
+                            aria-sort={sortKey === "rr" ? sortDirection : undefined}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleSort("rr")}
+                              className="flex items-center gap-1"
+                            >
+                              R:R
+                              {sortKey === "rr" && (
+                                <span aria-hidden>{sortDirection === "asc" ? "▲" : "▼"}</span>
+                              )}
+                            </button>
+                          </th>
+                          <th className="px-2 py-2 text-left font-semibold">
+                            Stop Type
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-2 py-2 text-left font-semibold"
+                            aria-sort={sortKey === "trend" ? sortDirection : undefined}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleSort("trend")}
+                              className="flex items-center gap-1"
+                            >
+                              Trend
+                              {sortKey === "trend" && (
+                                <span aria-hidden>{sortDirection === "asc" ? "▲" : "▼"}</span>
+                              )}
+                            </button>
+                          </th>
+                          <th className="px-2 py-2 text-left font-semibold">
+                            Location
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-2 py-2 text-left font-semibold"
+                            aria-sort={sortKey === "status" ? sortDirection : undefined}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleSort("status")}
+                              className="flex items-center gap-1"
+                            >
+                              Status
+                              {sortKey === "status" && (
+                                <span aria-hidden>{sortDirection === "asc" ? "▲" : "▼"}</span>
+                              )}
+                            </button>
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {sortedTrades.map((row, idx) => (
+                          <tr
+                            key={idx}
+                            className="border-b border-slate-700 bg-slate-900 text-slate-50 hover:bg-slate-800"
+                          >
+                            <td className="px-2 py-1.5 font-semibold">
+                              {row.symbol}
+                            </td>
+                            <td className="px-2 py-1.5 font-semibold">
+                              {row.trade.model}
+                            </td>
+                            <td className="px-2 py-1.5 font-semibold">
+                              {row.trade.direction}
+                            </td>
+                            <td className="px-2 py-1.5 text-right font-semibold">
+                              {formatPrice(row.symbol, row.trade.entry)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right font-semibold">
+                              {formatPrice(row.symbol, row.trade.stop)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right font-semibold">
+                              {formatPrice(row.symbol, row.trade.tp1)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right font-semibold">
+                              {row.trade.rr?.toFixed(2) ?? "-"}
+                            </td>
+                            <td className="px-2 py-1.5 font-semibold">
+                              {row.trade.stopType ?? "-"}
+                            </td>
+                            <td className="px-2 py-1.5 font-semibold">
+                              {row.trend ?? "-"}
+                            </td>
+                            <td className="px-2 py-1.5 font-semibold">
+                              {row.location ?? "-"}
+                            </td>
+                            <td className="px-2 py-1.5 font-semibold">
+                              {row.trade.status ?? "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </section>

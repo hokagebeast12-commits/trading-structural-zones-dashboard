@@ -118,7 +118,10 @@ export default function TradingDashboard() {
   }, [latestScan]);
 
   return (
-    <div className="min-h-screen flex bg-[#050816] text-slate-100">
+    <div
+      className="min-h-screen flex bg-[#050816] text-slate-100"
+      aria-busy={loading}
+    >
       {/* Sidebar (md+) */}
       <aside className="hidden md:flex md:flex-col w-[260px] border-r border-slate-800 bg-[#050816] p-4">
         <div className="mb-8">
@@ -135,6 +138,7 @@ export default function TradingDashboard() {
             type="button"
             className={navItemClasses(activeView === "dashboard")}
             onClick={() => setActiveView("dashboard")}
+            disabled={loading}
           >
             Dashboard
           </button>
@@ -142,6 +146,7 @@ export default function TradingDashboard() {
             type="button"
             className={navItemClasses(activeView === "signals")}
             onClick={() => setActiveView("signals")}
+            disabled={loading}
           >
             Signals
           </button>
@@ -149,6 +154,7 @@ export default function TradingDashboard() {
             type="button"
             className={navItemClasses(activeView === "settings")}
             onClick={() => setActiveView("settings")}
+            disabled={loading}
           >
             Settings
           </button>
@@ -160,7 +166,7 @@ export default function TradingDashboard() {
       </aside>
 
       {/* Main area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col relative">
         {/* Header */}
         <header className="h-16 border-b border-slate-800 px-4 md:px-6 flex items-center justify-between bg-[#050816]">
           <div>
@@ -201,7 +207,11 @@ export default function TradingDashboard() {
                   activeView === view
                     ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
                     : "border-slate-700 bg-slate-900/40 text-slate-300",
-                ].join(" ")}
+                  loading && "opacity-50 cursor-not-allowed",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                disabled={loading}
               >
                 {view === "dashboard"
                   ? "Dashboard"
@@ -304,7 +314,7 @@ export default function TradingDashboard() {
                               No trade candidates for this symbol.
                             </div>
                           ) : (
-                            <div className="overflow-x-auto">
+                            <div className={`overflow-x-auto ${loading ? "pointer-events-none opacity-50" : ""}`}>
                               <table className="w-full text-[13px]">
                                 <thead>
                                   <tr className="bg-slate-800 text-slate-50">
@@ -390,7 +400,9 @@ export default function TradingDashboard() {
                   Dashboard to generate signals.
                 </div>
               ) : (
-                <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-3 overflow-x-auto">
+                <div
+                  className={`rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-3 overflow-x-auto ${loading ? "pointer-events-none opacity-50" : ""}`}
+                >
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr className="bg-slate-800 text-slate-50">
@@ -502,6 +514,49 @@ export default function TradingDashboard() {
             </section>
           )}
         </main>
+
+        {loading && (
+          <div className="absolute inset-0 z-20 bg-slate-950/70 backdrop-blur-sm flex flex-col items-center px-4 py-8">
+            <div className="w-full max-w-5xl space-y-4" role="status">
+              <div className="flex flex-col items-start gap-2">
+                <div className="h-4 w-36 rounded-full bg-slate-700/60 animate-pulse" />
+                <div className="h-3 w-64 rounded-full bg-slate-700/50 animate-pulse" />
+              </div>
+              <div className="grid gap-4 md:gap-6 md:grid-cols-2">
+                {symbolsList.map((symbol) => (
+                  <div
+                    key={`skeleton-${symbol}`}
+                    className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.7)] animate-pulse"
+                  >
+                    <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-800/70">
+                      <div className="space-y-2 w-full">
+                        <div className="h-4 w-20 rounded bg-slate-700" />
+                        <div className="h-3 w-28 rounded bg-slate-800" />
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="h-5 w-20 rounded-full bg-slate-700" />
+                        <span className="h-5 w-16 rounded-full bg-slate-800" />
+                      </div>
+                    </div>
+                    <div className="pt-4 space-y-2">
+                      {[0, 1, 2].map((row) => (
+                        <div key={row} className="flex items-center gap-2">
+                          <span className="h-3 w-16 rounded bg-slate-800" />
+                          <span className="h-3 flex-1 rounded bg-slate-900" />
+                          <span className="h-3 w-12 rounded bg-slate-800" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-200">
+                <div className="h-4 w-4 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+                Fetching the latest scan…
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

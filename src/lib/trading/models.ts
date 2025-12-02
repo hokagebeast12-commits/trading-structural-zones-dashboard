@@ -1,12 +1,12 @@
-import { 
-  TradeCandidate, 
-  OcZone, 
-  LiquidityMap, 
-  OhlcBar, 
-  SymbolCode, 
+import {
+  TradeCandidate,
+  OcZone,
+  LiquidityMap,
+  OhlcBar,
+  SymbolCode,
   CONFIG,
-  Trend 
 } from './types';
+import type { Trend } from './trend-analysis';
 import { nearestAbove, nearestBelow } from './zones';
 
 export function generateModelATrades(

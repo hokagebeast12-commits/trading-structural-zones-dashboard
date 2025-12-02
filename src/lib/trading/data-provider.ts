@@ -110,6 +110,17 @@ function loadBrokerCsvOhlc(symbol: SymbolCode): OhlcBar[] {
       (h) => h.toUpperCase() === "CLOSE",
     );
 
+    // Optional indices
+    const tickVolIndex = headers.findIndex(
+      (h) => h.toUpperCase() === "TICKVOL",
+    );
+    const volIndex = headers.findIndex(
+      (h) => h.toUpperCase() === "VOL",
+    );
+    const spreadIndex = headers.findIndex(
+      (h) => h.toUpperCase() === "SPREAD",
+    );
+
     if (
       dateIndex === -1 ||
       openIndex === -1 ||
@@ -179,12 +190,35 @@ function loadBrokerCsvOhlc(symbol: SymbolCode): OhlcBar[] {
         continue; // Skip rows with invalid numbers
       }
 
+      // Optional fields
+      let tickVolume: number | undefined;
+      let volume: number | undefined;
+      let spread: number | undefined;
+
+      if (tickVolIndex !== -1 && columns[tickVolIndex] != null) {
+        const v = parseFloat(columns[tickVolIndex]);
+        if (!isNaN(v)) tickVolume = v;
+      }
+
+      if (volIndex !== -1 && columns[volIndex] != null) {
+        const v = parseFloat(columns[volIndex]);
+        if (!isNaN(v)) volume = v;
+      }
+
+      if (spreadIndex !== -1 && columns[spreadIndex] != null) {
+        const v = parseFloat(columns[spreadIndex]);
+        if (!isNaN(v)) spread = v;
+      }
+
       bars.push({
         date: normalizedDate,
         open,
         high,
         low,
         close,
+        tickVolume,
+        volume,
+        spread,
       });
     }
 

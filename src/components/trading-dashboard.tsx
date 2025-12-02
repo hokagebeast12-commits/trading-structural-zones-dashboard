@@ -1021,8 +1021,8 @@ export default function TradingDashboard() {
                     </p>
                   </CardHeader>
                   <CardContent>
-                    <pre className="rounded-lg border border-border bg-muted/60 p-3 text-[11px] leading-relaxed text-emerald-100">
-{JSON.stringify(scanPayload, null, 2)}
+                    <pre className="rounded-lg border border-border bg-slate-900/70 p-3 text-[11px] leading-relaxed text-emerald-200 font-mono">
+                      {JSON.stringify(scanPayload, null, 2)}
                     </pre>
                   </CardContent>
                 </Card>

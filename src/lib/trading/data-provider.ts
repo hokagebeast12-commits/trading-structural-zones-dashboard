@@ -91,7 +91,10 @@ function loadBrokerCsvOhlc(symbol: SymbolCode): OhlcBar[] {
     // Parse header to find column indices
     const headerLine = lines[0];
     const headers = headerLine
-      .split("\t")
+      .trim()
+      // Broker exports can be tab-separated or space-separated; use a
+      // whitespace split to support both.
+      .split(/\s+/)
       .map((h) => h.replace(/[<>]/g, "").trim());
 
     const dateIndex = headers.findIndex(
@@ -142,7 +145,7 @@ function loadBrokerCsvOhlc(symbol: SymbolCode): OhlcBar[] {
       const line = lines[i].trim();
       if (!line) continue;
 
-      const columns = line.split("\t");
+      const columns = line.split(/\s+/);
       if (
         columns.length <=
         Math.max(

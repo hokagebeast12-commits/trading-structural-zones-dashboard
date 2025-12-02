@@ -794,17 +794,17 @@ export default function TradingDashboard() {
             <section className="space-y-4 md:space-y-6">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold">Settings</h2>
-                <p className="text-xs md:text-sm text-slate-400">
+                <p className="text-xs md:text-sm text-muted-foreground">
                   Configure scan inputs before sending them to the engine.
                   Adjust symbols, trade-quality filters, and data windows.
                 </p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <Card className="border border-slate-800 bg-slate-900/40 shadow-[0_0_0_1px_rgba(15,23,42,0.7)]">
+                <Card className="border border-border bg-card shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Symbols</CardTitle>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-muted-foreground">
                       Toggle which pairs are included in the next scan.
                       Disabled symbols will be skipped in the request
                       payload.
@@ -815,11 +815,11 @@ export default function TradingDashboard() {
                       {symbolsList.map((symbol) => (
                         <label
                           key={`symbol-toggle-${symbol}`}
-                          className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm"
+                          className="flex items-center justify-between rounded-lg border border-border bg-muted/60 px-3 py-2 text-sm"
                         >
                           <div className="space-y-0.5">
                             <div className="font-semibold">{symbol}</div>
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-[11px] text-muted-foreground">
                               Include {symbol} in the scan payload.
                             </p>
                           </div>
@@ -839,17 +839,17 @@ export default function TradingDashboard() {
                         </label>
                       ))}
                     </div>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-muted-foreground">
                       The scan request will only include enabled symbols,
                       matching the engine&apos;s expected symbol list.
                     </p>
                   </CardContent>
                 </Card>
 
-                <Card className="border border-slate-800 bg-slate-900/40 shadow-[0_0_0_1px_rgba(15,23,42,0.7)]">
+                <Card className="border border-border bg-card shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Trade Filters</CardTitle>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-muted-foreground">
                       Control minimum reward-to-risk and cap spreads
                       before trades are surfaced.
                     </p>
@@ -874,7 +874,7 @@ export default function TradingDashboard() {
                           }))
                         }
                       />
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-muted-foreground">
                         Ignore candidates that don&apos;t meet the minimum
                         reward-to-risk.
                       </p>
@@ -887,7 +887,7 @@ export default function TradingDashboard() {
                           type="number"
                           inputMode="decimal"
                           step="0.1"
-                          className="w-24 h-9 bg-slate-950/60 border-slate-800 text-right"
+                          className="w-24 h-9 border-border bg-background text-right"
                           value={scanSettings.spreadCap}
                           onChange={(e) =>
                             setScanSettings((prev) => ({
@@ -898,7 +898,7 @@ export default function TradingDashboard() {
                           aria-label="Spread cap in pips"
                         />
                       </div>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-muted-foreground">
                         Maximum spread allowed for entries. Candidates with
                         wider spreads will be filtered out.
                       </p>
@@ -908,10 +908,10 @@ export default function TradingDashboard() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <Card className="border border-slate-800 bg-slate-900/40 shadow-[0_0_0_1px_rgba(15,23,42,0.7)]">
+                <Card className="border border-border bg-card shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">ATR & Lookback</CardTitle>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-muted-foreground">
                       Control volatility windows for ATR and structure
                       detection.
                     </p>
@@ -925,7 +925,7 @@ export default function TradingDashboard() {
                             id="atr-window"
                             type="number"
                             inputMode="numeric"
-                            className="w-20 h-9 bg-slate-950/60 border-slate-800 text-right"
+                            className="w-20 h-9 border-border bg-background text-right"
                             value={scanSettings.atrWindow}
                             onChange={(e) =>
                               setScanSettings((prev) => ({
@@ -935,10 +935,10 @@ export default function TradingDashboard() {
                             }
                             aria-label="ATR window"
                           />
-                          <span className="text-slate-400">days</span>
+                          <span className="text-muted-foreground">days</span>
                         </div>
                       </div>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-muted-foreground">
                         Number of bars used to compute ATR for sizing and
                         proximity calculations.
                       </p>
@@ -952,7 +952,7 @@ export default function TradingDashboard() {
                             id="structure-lookback"
                             type="number"
                             inputMode="numeric"
-                            className="w-20 h-9 bg-slate-950/60 border-slate-800 text-right"
+                            className="w-20 h-9 border-border bg-background text-right"
                             value={scanSettings.structureLookback}
                             onChange={(e) =>
                               setScanSettings((prev) => ({
@@ -963,10 +963,10 @@ export default function TradingDashboard() {
                             }
                             aria-label="Structure lookback"
                           />
-                          <span className="text-slate-400">days</span>
+                          <span className="text-muted-foreground">days</span>
                         </div>
                       </div>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-muted-foreground">
                         Days of history to search for orderblocks, liquidity
                         sweeps, and structural reference points.
                       </p>
@@ -974,16 +974,16 @@ export default function TradingDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="border border-slate-800 bg-slate-900/40 shadow-[0_0_0_1px_rgba(15,23,42,0.7)]">
+                <Card className="border border-border bg-card shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Payload preview</CardTitle>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-muted-foreground">
                       These values are sent to the POST /api/scan endpoint,
                       ready to be wired to the scan engine.
                     </p>
                   </CardHeader>
                   <CardContent>
-                    <pre className="rounded-lg border border-slate-800 bg-black/40 p-3 text-[11px] leading-relaxed text-emerald-100">
+                    <pre className="rounded-lg border border-border bg-muted/60 p-3 text-[11px] leading-relaxed text-emerald-100">
 {JSON.stringify(scanPayload, null, 2)}
                     </pre>
                   </CardContent>

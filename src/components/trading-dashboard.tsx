@@ -195,32 +195,34 @@ export default function TradingDashboard() {
         </header>
 
         {/* Mobile nav (simple pills) */}
-        <div className="md:hidden px-4 pt-3 flex gap-2 text-xs">
-          {(["dashboard", "signals", "settings"] as ViewKey[]).map(
-            (view) => (
-              <button
-                key={view}
-                type="button"
-                onClick={() => setActiveView(view)}
-                className={[
-                  "px-3 py-1 rounded-full border",
-                  activeView === view
-                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
-                    : "border-slate-700 bg-slate-900/40 text-slate-300",
-                  loading && "opacity-50 cursor-not-allowed",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                disabled={loading}
-              >
-                {view === "dashboard"
-                  ? "Dashboard"
-                  : view === "signals"
-                  ? "Signals"
-                  : "Settings"}
-              </button>
-            ),
-          )}
+        <div className="md:hidden sticky top-0 z-10 bg-[#050816] px-4 pt-3 pb-3">
+          <div className="flex gap-2 text-xs">
+            {(["dashboard", "signals", "settings"] as ViewKey[]).map(
+              (view) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => setActiveView(view)}
+                  className={[
+                    "px-3 py-1 rounded-full border",
+                    activeView === view
+                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
+                      : "border-slate-700 bg-slate-900/40 text-slate-300",
+                    loading && "opacity-50 cursor-not-allowed",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  disabled={loading}
+                >
+                  {view === "dashboard"
+                    ? "Dashboard"
+                    : view === "signals"
+                    ? "Signals"
+                    : "Settings"}
+                </button>
+              ),
+            )}
+          </div>
         </div>
 
         {/* Content */}

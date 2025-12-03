@@ -471,9 +471,9 @@ export default function TradingDashboard() {
                         >
                           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                             <div>
-                              <CardTitle className="text-sm font-semibold">
-                                {symbol}
-                              </CardTitle>
+                          <CardTitle className="text-sm font-semibold text-sky-100">
+                            {symbol}
+                          </CardTitle>
                               <p className="text-xs text-rose-200/80">
                                 Scan failed for this symbol.
                               </p>
@@ -541,7 +541,7 @@ export default function TradingDashboard() {
                       >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                           <div>
-                            <CardTitle className="text-sm font-semibold">
+                            <CardTitle className="text-sm font-semibold text-sky-100">
                               {symbol}
                             </CardTitle>
                             <p className="text-xs text-slate-400">
@@ -911,7 +911,7 @@ export default function TradingDashboard() {
                             key={idx}
                             className="border-b border-slate-700 bg-slate-900 text-slate-50 hover:bg-slate-800"
                           >
-                            <td className="px-2 py-1.5 font-semibold">
+                            <td className="px-2 py-1.5 font-semibold text-sky-100">
                               {row.symbol}
                             </td>
                             <td className="px-2 py-1.5 font-semibold">

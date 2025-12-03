@@ -2,12 +2,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { scanMarket } from "@/lib/trading/engine";
-import type {
-  LivePriceSnapshot,
-  ScanOptions,
-  ScanResponse,
-  SymbolCode,
-} from "@/lib/trading/types";
+import type { ScanOptions, ScanResponse, SymbolCode } from "@/lib/trading/types";
+import { isSymbolScanError } from "@/lib/trading/types";
 import { getCurrentPrice } from "@/lib/trading/live-prices";
 import { computeNearestZoneInfo } from "@/lib/trading/nearest-zone";
 
@@ -116,10 +112,14 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
   const scan = await scanMarket(options); // expected to return ScanResponse shape
 
   const symbols = Object.keys(scan.symbols) as SymbolCode[];
+  const symbolsNeedingPrices = symbols.filter((symbol) => {
+    const entry = scan.symbols[symbol];
+    return entry && !isSymbolScanError(entry);
+  });
 
   // 2) Fetch current prices in parallel
-  const prices: LivePriceSnapshot[] = await Promise.all(
-    symbols.map(async (symbol) => {
+  const prices = await Promise.all(
+    symbolsNeedingPrices.map(async (symbol) => {
       try {
         const p = await getCurrentPrice(symbol);
         return p;
@@ -131,7 +131,7 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
   );
 
   // 3) Attach nearestZone info per symbol
-  symbols.forEach((symbol, idx) => {
+  symbolsNeedingPrices.forEach((symbol, idx) => {
     const symbolResult = scan.symbols[symbol];
     const spotInfo = prices[idx];
 
@@ -139,14 +139,15 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
       return;
     }
 
-    const nearest =
-      spotInfo?.spot != null
-        ? computeNearestZoneInfo(
-            symbolResult.zones ?? [],
-            spotInfo.spot,
-            symbolResult.atr20 ?? null,
-          )
-        : null;
+    if (isSymbolScanError(symbolResult)) {
+      return;
+    }
+
+    const nearest = computeNearestZoneInfo(
+      symbolResult.zones ?? [],
+      spot,
+      symbolResult.atr20 ?? null,
+    );
 
     // Mutate in place or reassign – both are fine
     scan.symbols[symbol] = {

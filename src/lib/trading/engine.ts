@@ -4,6 +4,7 @@ import { findStructuralZones, createLiquidityMap } from './zones';
 import { generateModelATrades, generateModelBTrades } from './models';
 import {
   SymbolCode,
+  SymbolScanEntry,
   SymbolScanResult,
   ScanResponse,
   CONFIG,
@@ -87,22 +88,16 @@ export async function scanMarket(options?: ScanOptions): Promise<ScanResponse> {
   const symbols: SymbolCode[] =
     options?.symbols && options.symbols.length > 0 ? options.symbols : defaultSymbols;
 
-  const results: Partial<Record<SymbolCode, SymbolScanResult>> = {};
+  const results: Partial<Record<SymbolCode, SymbolScanEntry>> = {};
 
   for (const symbol of symbols) {
     try {
       results[symbol] = await scanSymbol(symbol, options);
     } catch (error) {
       console.error(`Error scanning ${symbol}:`, error);
-      // Return empty result for this symbol
-      results[symbol] = {
-        symbol,
-        trend: "Neutral",
-        atr20: 0,
-        location: "Mid",
-        zones: [],
-        trades: []
-      };
+      const message =
+        error instanceof Error ? error.message : "Unexpected error while scanning";
+      results[symbol] = { symbol, error: message };
     }
   }
 

@@ -115,10 +115,23 @@ export interface SymbolScanResult {
   nearestZone?: NearestZoneInfo | null;
 }
 
+export interface SymbolScanError {
+  symbol: SymbolCode;
+  error: string;
+}
+
+export type SymbolScanEntry = SymbolScanResult | SymbolScanError;
+
 // Top-level scan response returned by /api/scan
 export interface ScanResponse {
   date: string;   // echo of query param or today
-  symbols: Partial<Record<SymbolCode, SymbolScanResult>>;
+  symbols: Partial<Record<SymbolCode, SymbolScanEntry>>;
+}
+
+export function isSymbolScanError(
+  entry: SymbolScanEntry | undefined,
+): entry is SymbolScanError {
+  return !!entry && "error" in entry;
 }
 
 // Static configuration for the scanner

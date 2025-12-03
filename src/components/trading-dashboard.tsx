@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ScanResponse, SymbolCode } from "@/lib/trading/types";
+import { isSymbolScanError } from "@/lib/trading/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -182,7 +183,7 @@ export default function TradingDashboard() {
   const hasAnyTrades =
     !!latestScan &&
     Object.values(latestScan.symbols).some(
-      (s) => s.trades && s.trades.length > 0,
+      (entry) => entry && !isSymbolScanError(entry) && entry.trades?.length,
     );
 
   // Flatten all trades across symbols for the Signals view
@@ -199,7 +200,7 @@ export default function TradingDashboard() {
     (Object.keys(latestScan.symbols) as SymbolCode[]).forEach(
       (symbol) => {
         const s = latestScan.symbols[symbol];
-        if (!s || !s.trades) return;
+        if (!s || isSymbolScanError(s) || !s.trades) return;
         s.trades.forEach((trade) => {
           rows.push({
             symbol,
@@ -449,6 +450,34 @@ export default function TradingDashboard() {
                   {symbolsList.map((symbol) => {
                     const symbolResult = latestScan.symbols[symbol];
                     if (!symbolResult) return null;
+
+                    if (isSymbolScanError(symbolResult)) {
+                      return (
+                        <Card
+                          key={symbol}
+                          className="border border-rose-700 bg-rose-950/40 shadow-[0_0_0_1px_rgba(127,29,29,0.5)]"
+                        >
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <div>
+                              <CardTitle className="text-sm font-semibold">
+                                {symbol}
+                              </CardTitle>
+                              <p className="text-xs text-rose-200/80">
+                                Scan failed for this symbol.
+                              </p>
+                            </div>
+                            <span className="inline-flex items-center rounded-full border border-rose-700 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-100">
+                              Error
+                            </span>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            <div className="rounded-lg border border-rose-800 bg-rose-900/50 px-3 py-3 text-xs text-rose-100">
+                              {symbolResult.error || "Unknown error"}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
 
                     const trend = symbolResult.trend;
                     const location = symbolResult.location;

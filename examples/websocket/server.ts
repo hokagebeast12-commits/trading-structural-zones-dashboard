@@ -3,7 +3,8 @@ import { Server } from 'socket.io'
 
 const httpServer = createServer()
 const io = new Server(httpServer, {
-  // Keep the path aligned with the client Socket.IO path to ensure connections are routed correctly
+  // Socket.IO path must match the client configuration (see examples/websocket/frontend.tsx)
+  // so reverse proxies and dev tooling route the websocket upgrades correctly.
   path: '/socket.io',
   cors: {
     origin: "*",

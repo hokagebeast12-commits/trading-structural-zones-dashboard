@@ -14,13 +14,20 @@ export function generateModelATrades(
   zones: OcZone[],
   liquidity: LiquidityMap,
   bars: OhlcBar[],
-  symbol: SymbolCode
+  symbol: SymbolCode,
+  options?: { minRr?: number; spreadCap?: number }
 ): TradeCandidate[] {
   const trades: TradeCandidate[] = [];
   const currentPrice = bars[bars.length - 1].close;
   const riskCap = CONFIG.risk_cap[symbol];
   const slBuffer = CONFIG.sl_buffer[symbol];
-  const minRR = CONFIG.min_rr;
+  const minRR = options?.minRr ?? CONFIG.min_rr;
+  const spreadCap = options?.spreadCap;
+  const currentSpread = bars[bars.length - 1]?.spread;
+
+  if (spreadCap != null && currentSpread != null && currentSpread > spreadCap) {
+    return trades;
+  }
   
   if (trend === "Bull") {
     // Long trades only - zones below current price
@@ -104,14 +111,21 @@ export function generateModelBTrades(
   zones: OcZone[],
   liquidity: LiquidityMap,
   bars: OhlcBar[],
-  symbol: SymbolCode
+  symbol: SymbolCode,
+  options?: { minRr?: number; spreadCap?: number }
 ): TradeCandidate[] {
   const trades: TradeCandidate[] = [];
   const currentPrice = bars[bars.length - 1].close;
   const prevBar = bars[bars.length - 2];
   const riskCap = CONFIG.risk_cap[symbol];
   const slBuffer = CONFIG.sl_buffer[symbol];
-  const minRR = CONFIG.min_rr;
+  const minRR = options?.minRr ?? CONFIG.min_rr;
+  const spreadCap = options?.spreadCap;
+  const currentSpread = bars[bars.length - 1]?.spread;
+
+  if (spreadCap != null && currentSpread != null && currentSpread > spreadCap) {
+    return trades;
+  }
   
   if (!prevBar) return trades;
   

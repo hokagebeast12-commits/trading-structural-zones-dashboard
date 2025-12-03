@@ -19,13 +19,19 @@ export function createLiquidityMap(bars: OhlcBar[]): LiquidityMap {
   };
 }
 
-export function findStructuralZones(bars: OhlcBar[], symbol: SymbolCode): OcZone[] {
-  if (bars.length < CONFIG.lookback_days) {
+export function findStructuralZones(
+  bars: OhlcBar[],
+  symbol: SymbolCode,
+  lookbackDays?: number,
+): OcZone[] {
+  const zoneLookback = lookbackDays ?? CONFIG.lookback_days;
+
+  if (bars.length < zoneLookback) {
     return [];
   }
-  
+
   // Use last lookback_days for zone analysis
-  const analysisBars = bars.slice(-CONFIG.lookback_days);
+  const analysisBars = bars.slice(-zoneLookback);
   const clusterRadius = CONFIG.oc_cluster_radius[symbol];
   
   // Collect all Opens and Closes

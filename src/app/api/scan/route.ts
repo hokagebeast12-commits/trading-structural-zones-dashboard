@@ -18,6 +18,27 @@ const SUPPORTED_SYMBOLS: SymbolCode[] = [
   "GBPJPY",
 ];
 
+const manualCloseSchema = z
+  .object({
+    enabled: z.boolean(),
+    close: z
+      .number({ invalid_type_error: "manual close must be a number" })
+      .finite()
+      .optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.enabled) {
+      if (typeof value.close !== "number" || !Number.isFinite(value.close)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Manual close is required when enabled and must be finite",
+          path: ["close"],
+        });
+      }
+    }
+  });
+
 const scanPayloadSchema = z
   .object({
     date: z
@@ -65,6 +86,9 @@ const scanPayloadSchema = z
       })
       .strict()
       .optional(),
+    manualCloses: z
+      .record(z.enum(SUPPORTED_SYMBOLS), manualCloseSchema)
+      .optional(),
   })
   .strict();
 
@@ -108,6 +132,10 @@ function normalizeScanOptions(
     options.params = { ...payload.params };
   }
 
+  if (payload.manualCloses) {
+    options.manualCloses = { ...payload.manualCloses };
+  }
+
   return options;
 }
 
@@ -134,8 +162,20 @@ async function runScanWithLivePrices(
   }
 
   // 2) Fetch current prices in parallel
+  const manualCloses = options?.manualCloses ?? {};
+
   const prices = await Promise.all(
     symbolsNeedingPrices.map(async (symbol) => {
+      const manual = manualCloses[symbol];
+      const manualEnabled =
+        manual?.enabled &&
+        typeof manual.close === "number" &&
+        Number.isFinite(manual.close);
+
+      if (manualEnabled) {
+        return { spot: manual.close, source: "manual" as const };
+      }
+
       try {
         const p = await getCurrentPrice(symbol);
         return p;

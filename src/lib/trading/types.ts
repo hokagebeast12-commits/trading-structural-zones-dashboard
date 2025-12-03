@@ -17,7 +17,7 @@ export interface LivePriceError {
 export interface LivePriceSnapshot {
   spot: number | null;
   /** Whether the quote came from a live provider or a fallback value */
-  source?: "live" | "fallback";
+  source?: "live" | "fallback" | "manual";
   error?: LivePriceError;
 }
 
@@ -38,6 +38,9 @@ export interface ScanOptions {
   filters?: ScanFilters;
   params?: ScanParams;
   date?: string;
+  manualCloses?: Partial<
+    Record<SymbolCode, { enabled: boolean; close?: number | null }>
+  >;
 }
 
 // Single OHLC bar (daily in your current setup)

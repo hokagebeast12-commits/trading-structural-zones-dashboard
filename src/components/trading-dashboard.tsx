@@ -56,6 +56,8 @@ type ScanSettings = {
   structureLookback: number;
 };
 
+type ManualCloseState = Record<SymbolCode, { enabled: boolean; value: string }>;
+
 interface FlattenedTradeRow {
   symbol: SymbolCode;
   trend: SymbolScanResult["trend"];
@@ -101,10 +103,65 @@ export default function TradingDashboard() {
     atrWindow: 20,
     structureLookback: 60,
   }));
+  const [manualCloses, setManualCloses] = useState<ManualCloseState>(() =>
+    SYMBOLS_LIST.reduce(
+      (acc, symbol) => ({ ...acc, [symbol]: { enabled: false, value: "" } }),
+      {} as ManualCloseState,
+    ),
+  );
+
+  const manualCloseIssues = useMemo(() => {
+    const issues: Partial<Record<SymbolCode, string>> = {};
+
+    symbolsList.forEach((symbol) => {
+      const manual = manualCloses[symbol];
+      if (!manual?.enabled || !scanSettings.symbols[symbol]) return;
+
+      const parsed = Number(manual.value);
+      if (!Number.isFinite(parsed)) {
+        issues[symbol] = "Manual 1h close must be numeric and finite.";
+      }
+    });
+
+    return issues;
+  }, [manualCloses, scanSettings.symbols, symbolsList]);
+
+  const hasManualCloseIssues = useMemo(
+    () => Object.keys(manualCloseIssues).length > 0,
+    [manualCloseIssues],
+  );
 
   const symbolsList = useMemo(() => SYMBOLS_LIST, []);
-  const scanPayload = useMemo(
-    () => ({
+  const manualClosePayload = useMemo(() => {
+    const payload: Partial<
+      Record<SymbolCode, { enabled: boolean; close?: number }>
+    > = {};
+
+    symbolsList.forEach((symbol) => {
+      const state = manualCloses[symbol];
+      if (!state || !scanSettings.symbols[symbol]) return;
+
+      const parsed = Number(state.value);
+      if (state.enabled && Number.isFinite(parsed)) {
+        payload[symbol] = { enabled: true, close: parsed };
+      }
+    });
+
+    return payload;
+  }, [manualCloses, scanSettings.symbols, symbolsList]);
+
+  const scanPayload = useMemo(() => {
+    const payload: {
+      symbols: SymbolCode[];
+      filters: { minRr: number; spreadCap: number };
+      params: {
+        atrWindow: number;
+        structureLookback: number;
+      };
+      manualCloses?: Partial<
+        Record<SymbolCode, { enabled: boolean; close?: number }>
+      >;
+    } = {
       symbols: symbolsList.filter((symbol) => scanSettings.symbols[symbol]),
       filters: {
         minRr: scanSettings.minRr,
@@ -114,13 +171,31 @@ export default function TradingDashboard() {
         atrWindow: scanSettings.atrWindow,
         structureLookback: scanSettings.structureLookback,
       },
-    }),
-    [scanSettings, symbolsList],
-  );
+    };
+
+    if (Object.keys(manualClosePayload).length > 0) {
+      payload.manualCloses = manualClosePayload;
+    }
+
+    return payload;
+  }, [manualClosePayload, scanSettings, symbolsList]);
 
   async function fetchScan() {
     if (!scanPayload.symbols.length) {
       setErrorMessage("Select at least one symbol before scanning.");
+      setSignals(null);
+      return;
+    }
+
+    if (hasManualCloseIssues) {
+      const firstIssue = Object.entries(manualCloseIssues)[0];
+      const symbol = firstIssue?.[0];
+
+      setErrorMessage(
+        symbol
+          ? `Manual 1h close for ${symbol} must be a valid number when enabled.`
+          : "Manual 1h close entries must be numeric and finite.",
+      );
       setSignals(null);
       return;
     }
@@ -193,7 +268,6 @@ export default function TradingDashboard() {
   useEffect(() => {
     // Initial fetch on mount
     fetchScan();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const latestScan = signals && signals.length > 0 ? signals[0] : null;
@@ -384,7 +458,7 @@ export default function TradingDashboard() {
             )}
             <Button
               size="sm"
-              disabled={loading}
+              disabled={loading || hasManualCloseIssues}
               onClick={fetchScan}
               className="bg-emerald-500 hover:bg-emerald-600 text-slate-950"
             >
@@ -502,6 +576,7 @@ export default function TradingDashboard() {
                         ? formatPrice(symbol, livePrice.spot)
                         : "-";
                     const source = livePrice?.source;
+                    const isManualSource = source === "manual";
                     const status = nearestZone?.status;
 
                     const statusChip = status
@@ -514,11 +589,13 @@ export default function TradingDashboard() {
                       : "bg-slate-800/60 text-slate-300 border-slate-700/80";
 
                     const sourceChip =
-                      source === "fallback"
-                        ? "bg-amber-500/15 text-amber-200 border-amber-500/40"
-                        : source === "live"
-                        ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/40"
-                        : "bg-slate-800/60 text-slate-300 border-slate-700/80";
+                      source === "manual"
+                        ? "bg-sky-500/20 text-sky-100 border-sky-500/40"
+                        : source === "fallback"
+                          ? "bg-amber-500/15 text-amber-200 border-amber-500/40"
+                          : source === "live"
+                            ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/40"
+                            : "bg-slate-800/60 text-slate-300 border-slate-700/80";
 
                     const trendColor =
                       trend === "Bull"
@@ -578,6 +655,13 @@ export default function TradingDashboard() {
                                   {source ?? "unknown"}
                                 </span>
                               </div>
+                              {isManualSource && (
+                                <div className="mt-2 flex justify-end">
+                                  <span className="inline-flex items-center rounded-full border border-sky-500/50 bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-100">
+                                    Manual Close
+                                  </span>
+                                </div>
+                              )}
                             </div>
                             <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
                               <p className="text-[11px] uppercase tracking-wide text-slate-400">
@@ -1140,6 +1224,97 @@ export default function TradingDashboard() {
                         sweeps, and structural reference points.
                       </p>
                     </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border border-border bg-card shadow-sm md:col-span-2">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Manual 1h close</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Optionally override the live quote per symbol with a
+                      manual 1h close. When enabled, the scan payload will
+                      include the manual value and surface a manual indicator
+                      in results.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {symbolsList.map((symbol) => {
+                        const state = manualCloses[symbol];
+                        const issue = manualCloseIssues[symbol];
+
+                        return (
+                          <div
+                            key={`manual-close-${symbol}`}
+                            className="rounded-lg border border-border bg-muted/40 p-3"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="space-y-0.5">
+                                <div className="text-sm font-semibold">{symbol}</div>
+                                <p className="text-[11px] text-muted-foreground">
+                                  Use a manual 1h close for {symbol}.
+                                </p>
+                              </div>
+                              <Switch
+                                checked={state?.enabled}
+                                onCheckedChange={(checked) =>
+                                  setManualCloses((prev) => ({
+                                    ...prev,
+                                    [symbol]: {
+                                      ...prev[symbol],
+                                      enabled: checked,
+                                    },
+                                  }))
+                                }
+                                aria-label={`Toggle manual close for ${symbol}`}
+                              />
+                            </div>
+                            <div className="mt-3 flex items-center gap-2 text-sm">
+                              <Input
+                                type="number"
+                                inputMode="decimal"
+                                step="any"
+                                placeholder="e.g. 1.2345"
+                                className={[
+                                  "h-9 bg-background text-right",
+                                  issue
+                                    ? "border-red-500 focus-visible:ring-red-500"
+                                    : "border-border",
+                                ].join(" ")}
+                                disabled={!state?.enabled}
+                                value={state?.value ?? ""}
+                                onChange={(e) =>
+                                  setManualCloses((prev) => ({
+                                    ...prev,
+                                    [symbol]: {
+                                      ...prev[symbol],
+                                      value: e.target.value,
+                                    },
+                                  }))
+                                }
+                                aria-label={`Manual close for ${symbol}`}
+                              />
+                              <span className="text-[11px] text-muted-foreground">
+                                Overrides live price when enabled.
+                              </span>
+                            </div>
+                            {issue && (
+                              <p className="mt-2 text-[11px] text-red-400">{issue}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {hasManualCloseIssues && (
+                      <div className="rounded-lg border border-red-700 bg-red-900/30 px-3 py-2 text-[11px] text-red-200">
+                        Fix manual 1h close entries highlighted above before
+                        running a scan.
+                      </div>
+                    )}
+                    <p className="text-[11px] text-muted-foreground">
+                      Manual values must be numeric and finite. Invalid entries
+                      are blocked before sending the scan request.
+                    </p>
                   </CardContent>
                 </Card>
 

@@ -33,6 +33,8 @@ export default function SocketDemo() {
     // Connect to websocket server
     // Never use PORT in the URL, always use XTransformPort
     const socketInstance = io('/?XTransformPort=3003', {
+      // Keep this path in sync with the server (examples/websocket/server.ts)
+      // so websocket requests reach the correct namespace when proxies are involved.
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       forceNew: true,

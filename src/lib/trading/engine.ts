@@ -1,7 +1,8 @@
-import { getDailyOhlc } from './data-provider';
-import { classifyTrend } from './trend-analysis';
-import { findStructuralZones, createLiquidityMap } from './zones';
-import { generateModelATrades, generateModelBTrades } from './models';
+// src/lib/trading/engine.ts
+import { getDailyOhlc } from "./data-provider";
+import { classifyTrend } from "./trend-analysis";
+import { findStructuralZones, createLiquidityMap } from "./zones";
+import { generateModelATrades, generateModelBTrades } from "./models";
 import {
   SymbolCode,
   SymbolScanEntry,
@@ -9,7 +10,7 @@ import {
   ScanResponse,
   CONFIG,
   ScanOptions,
-} from './types';
+} from "./types";
 
 export async function scanSymbol(
   symbol: SymbolCode,
@@ -33,21 +34,23 @@ export async function scanSymbol(
     atrWindow + 1,
   );
   const bars = await getDailyOhlc(symbol, neededBars);
-  
+
   if (bars.length < neededBars) {
-    throw new Error(`Insufficient data for ${symbol}: got ${bars.length}, need ${neededBars}`);
+    throw new Error(
+      `Insufficient data for ${symbol}: got ${bars.length}, need ${neededBars}`,
+    );
   }
-  
+
   // Analyze trend
   const { trend, location, atr20 } = classifyTrend(bars, {
     lookbackDays,
     trendLookback,
     atrWindow,
   });
-  
+
   // Find structural zones
   const zones = findStructuralZones(bars, symbol, lookbackDays);
-  
+
   // Create liquidity map
   const liquidity = createLiquidityMap(bars.slice(-lookbackDays));
 
@@ -78,16 +81,27 @@ export async function scanSymbol(
     location,
     zones,
     trades,
-    lastClose: bars[bars.length - 1]?.close,
+    // bars.length >= neededBars is guaranteed above, so this is safe
+    lastClose: bars[bars.length - 1].close,
   };
 }
 
-export async function scanMarket(options?: ScanOptions): Promise<ScanResponse> {
-  const scanDate = options?.date || new Date().toISOString().split('T')[0];
+export async function scanMarket(
+  options?: ScanOptions,
+): Promise<ScanResponse> {
+  const scanDate =
+    options?.date || new Date().toISOString().split("T")[0];
 
-  const defaultSymbols: SymbolCode[] = ["XAUUSD", "EURUSD", "GBPJPY", "GBPUSD"];
+  const defaultSymbols: SymbolCode[] = [
+    "XAUUSD",
+    "EURUSD",
+    "GBPJPY",
+    "GBPUSD",
+  ];
   const symbols: SymbolCode[] =
-    options?.symbols && options.symbols.length > 0 ? options.symbols : defaultSymbols;
+    options?.symbols && options.symbols.length > 0
+      ? options.symbols
+      : defaultSymbols;
 
   const results: Partial<Record<SymbolCode, SymbolScanEntry>> = {};
 
@@ -97,13 +111,15 @@ export async function scanMarket(options?: ScanOptions): Promise<ScanResponse> {
     } catch (error) {
       console.error(`Error scanning ${symbol}:`, error);
       const message =
-        error instanceof Error ? error.message : "Unexpected error while scanning";
+        error instanceof Error
+          ? error.message
+          : "Unexpected error while scanning";
       results[symbol] = { symbol, error: message };
     }
   }
 
   return {
     date: scanDate,
-    symbols: results
+    symbols: results,
   };
 }

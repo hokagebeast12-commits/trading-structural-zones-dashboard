@@ -133,7 +133,7 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
   // 3) Attach nearestZone info per symbol
   symbolsNeedingPrices.forEach((symbol, idx) => {
     const symbolResult = scan.symbols[symbol];
-    const spotInfo = prices[idx];
+    const rawPrice = prices[idx];
 
     if (!symbolResult) {
       return;

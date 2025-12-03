@@ -70,7 +70,7 @@ export async function scanSymbol(
     tradeOptions,
   );
   const trades = [...modelATrades, ...modelBTrades];
-  
+
   return {
     symbol,
     trend,

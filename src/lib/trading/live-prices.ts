@@ -184,5 +184,5 @@ export async function getCurrentPrice(
     };
   }
 
-  return { spot: mid };
+  return { spot: mid, source: "live" };
 }

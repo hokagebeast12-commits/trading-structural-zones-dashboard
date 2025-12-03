@@ -9,6 +9,8 @@ export interface LivePriceError {
 
 export interface LivePriceSnapshot {
   spot: number | null;
+  /** Whether the quote came from a live provider or a fallback value */
+  source?: "live" | "fallback";
   error?: LivePriceError;
 }
 
@@ -109,6 +111,8 @@ export interface SymbolScanResult {
   location: "Discount" | "Mid" | "Premium";
   zones: OcZone[];
   trades: TradeCandidate[];
+  /** Close price of the most recent OHLC bar – used as a fallback quote */
+  lastClose: number;
   livePrice?: LivePriceSnapshot;
 
   /** Optional live-price proximity info (if live prices are available) */

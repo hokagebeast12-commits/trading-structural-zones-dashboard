@@ -2,7 +2,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { scanMarket } from "@/lib/trading/engine";
-import type { ScanOptions, ScanResponse, SymbolCode } from "@/lib/trading/types";
+import type {
+  ScanOptions,
+  ScanResponse,
+  SymbolCode,
+} from "@/lib/trading/types";
 import { isSymbolScanError } from "@/lib/trading/types";
 import { getCurrentPrice } from "@/lib/trading/live-prices";
 import { computeNearestZoneInfo } from "@/lib/trading/nearest-zone";
@@ -24,7 +28,9 @@ const scanPayloadSchema = z
       })
       .optional(),
     symbols: z
-      .array(z.enum(SUPPORTED_SYMBOLS, { invalid_type_error: "Invalid symbol" }))
+      .array(
+        z.enum(SUPPORTED_SYMBOLS, { invalid_type_error: "Invalid symbol" }),
+      )
       .nonempty({ message: "At least one symbol is required" })
       .optional(),
     filters: z
@@ -47,7 +53,9 @@ const scanPayloadSchema = z
           .finite()
           .optional(),
         structureLookback: z
-          .number({ invalid_type_error: "structureLookback must be a number" })
+          .number({
+            invalid_type_error: "structureLookback must be a number",
+          })
           .finite()
           .optional(),
         trendLookback: z
@@ -79,7 +87,9 @@ function validateLivePriceConfig(): { ok: boolean; message?: string } {
   return { ok: true };
 }
 
-function normalizeScanOptions(payload: z.infer<typeof scanPayloadSchema>): ScanOptions {
+function normalizeScanOptions(
+  payload: z.infer<typeof scanPayloadSchema>,
+): ScanOptions {
   const options: ScanOptions = {};
 
   if (payload.date) {
@@ -107,7 +117,9 @@ function normalizeScanOptions(payload: z.infer<typeof scanPayloadSchema>): ScanO
  *  - Fetches live prices for each symbol.
  *  - Computes nearest zone vs spot and attaches it to each SymbolScanResult.
  */
-async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanResponse> {
+async function runScanWithLivePrices(
+  options?: ScanOptions,
+): Promise<ScanResponse> {
   // 1) Run the existing engine scan (no changes to engine.ts)
   const scan = await scanMarket(options); // expected to return ScanResponse shape
 
@@ -117,6 +129,10 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
     return entry && !isSymbolScanError(entry);
   });
 
+  if (symbolsNeedingPrices.length === 0) {
+    return scan;
+  }
+
   // 2) Fetch current prices in parallel
   const prices = await Promise.all(
     symbolsNeedingPrices.map(async (symbol) => {
@@ -125,50 +141,62 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
         return p;
       } catch (err) {
         console.error("Failed to fetch live price for", symbol, err);
-        return { spot: null, error: { code: "HTTP_ERROR", message: String(err) } };
+        return {
+          spot: null,
+          error: { code: "HTTP_ERROR", message: String(err) },
+        };
       }
     }),
   );
 
-  // 3) Attach nearestZone info per symbol
+  // 3) Attach livePrice + nearestZone per symbol
   symbolsNeedingPrices.forEach((symbol, idx) => {
-    const symbolResult = scan.symbols[symbol];
+    const entry = scan.symbols[symbol];
     const rawPrice = prices[idx];
 
-    if (!symbolResult) {
+    if (!entry || isSymbolScanError(entry)) {
       return;
     }
 
-    if (isSymbolScanError(symbolResult)) {
-      return;
-    }
+    const symbolResult = entry;
 
-    const needsFallback = spotInfo?.spot == null && symbolResult.lastClose != null;
-    const livePrice = needsFallback
-      ? {
-          spot: symbolResult.lastClose,
-          source: "fallback" as const,
-          error:
-            spotInfo?.error ??
-            ({
-              code: "ENV_MISSING" as const,
-              message:
-                "Live prices are not configured; using last daily close as fallback",
-            } satisfies Awaited<ReturnType<typeof getCurrentPrice>>["error"]),
-        }
-      : spotInfo;
+    const hasLiveQuote =
+      typeof rawPrice?.spot === "number" && Number.isFinite(rawPrice.spot);
+    const hasFallback =
+      !hasLiveQuote &&
+      typeof symbolResult.lastClose === "number" &&
+      Number.isFinite(symbolResult.lastClose);
 
-    const nearest = computeNearestZoneInfo(
-      symbolResult.zones ?? [],
-      livePrice?.spot ?? Number.NaN,
-      symbolResult.atr20 ?? null,
-    );
+    const livePrice =
+      hasLiveQuote
+        ? { ...rawPrice, source: rawPrice?.source ?? "live" }
+        : hasFallback
+          ? {
+              spot: symbolResult.lastClose,
+              source: "fallback" as const,
+              error:
+                rawPrice?.error ??
+                ({
+                  code: "ENV_MISSING" as const,
+                  message:
+                    "Live prices are not configured; using last daily close as fallback",
+                } satisfies Awaited<ReturnType<typeof getCurrentPrice>>["error"]),
+            }
+          : rawPrice;
 
-    // Mutate in place or reassign – both are fine
+    const nearestZone =
+      typeof livePrice?.spot === "number" && Number.isFinite(livePrice.spot)
+        ? computeNearestZoneInfo(
+            symbolResult.zones ?? [],
+            livePrice.spot,
+            symbolResult.atr20 ?? null,
+          )
+        : null;
+
     scan.symbols[symbol] = {
       ...symbolResult,
       livePrice,
-      nearestZone: nearest,
+      nearestZone,
     };
   });
 

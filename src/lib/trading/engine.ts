@@ -1,9 +1,9 @@
-// src/lib/trading/engine.ts
 import { getDailyOhlc } from "./data-provider";
 import { classifyTrend } from "./trend-analysis";
 import { findStructuralZones, createLiquidityMap } from "./zones";
 import { generateModelATrades, generateModelBTrades } from "./models";
 import {
+  SYMBOLS,
   SymbolCode,
   SymbolScanEntry,
   SymbolScanResult,
@@ -75,6 +75,7 @@ export async function scanSymbol(
   const trades = [...modelATrades, ...modelBTrades];
 
   return {
+    kind: "ok",
     symbol,
     trend,
     atr20,
@@ -92,30 +93,34 @@ export async function scanMarket(
   const scanDate =
     options?.date || new Date().toISOString().split("T")[0];
 
-  const defaultSymbols: SymbolCode[] = [
-    "XAUUSD",
-    "EURUSD",
-    "GBPJPY",
-    "GBPUSD",
-  ];
   const symbols: SymbolCode[] =
     options?.symbols && options.symbols.length > 0
       ? options.symbols
-      : defaultSymbols;
+      : [...SYMBOLS];
 
   const results: Partial<Record<SymbolCode, SymbolScanEntry>> = {};
 
-  for (const symbol of symbols) {
-    try {
-      results[symbol] = await scanSymbol(symbol, options);
-    } catch (error) {
-      console.error(`Error scanning ${symbol}:`, error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unexpected error while scanning";
-      results[symbol] = { symbol, error: message };
-    }
+  const scanEntries = await Promise.all(
+    symbols.map(async (symbol) => {
+      try {
+        const entry = await scanSymbol(symbol, options);
+        return { symbol, entry } as const;
+      } catch (error) {
+        console.error(`Error scanning ${symbol}:`, error);
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Unexpected error while scanning";
+        return {
+          symbol,
+          entry: { kind: "error" as const, symbol, error: message },
+        } as const;
+      }
+    }),
+  );
+
+  for (const { symbol, entry } of scanEntries) {
+    results[symbol] = entry;
   }
 
   return {

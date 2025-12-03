@@ -2,8 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { ScanResponse, SymbolCode } from "@/lib/trading/types";
-import { isSymbolScanError } from "@/lib/trading/types";
+import type {
+  ScanResponse,
+  SymbolCode,
+  TradeCandidate,
+  SymbolScanResult,
+} from "@/lib/trading/types";
+import { SYMBOLS, isSymbolScanError } from "@/lib/trading/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,7 +28,7 @@ const DECIMALS: Record<string, number> = {
   GBPJPY: 3,
 };
 
-const SYMBOLS_LIST: SymbolCode[] = ["XAUUSD", "EURUSD", "GBPUSD", "GBPJPY"];
+const SYMBOLS_LIST = SYMBOLS;
 
 function formatPrice(
   symbol: string | SymbolCode,
@@ -50,6 +55,13 @@ type ScanSettings = {
   atrWindow: number;
   structureLookback: number;
 };
+
+interface FlattenedTradeRow {
+  symbol: SymbolCode;
+  trend: SymbolScanResult["trend"];
+  location: SymbolScanResult["location"];
+  trade: TradeCandidate;
+}
 
 function navItemClasses(isActive: boolean): string {
   return [
@@ -107,6 +119,12 @@ export default function TradingDashboard() {
   );
 
   async function fetchScan() {
+    if (!scanPayload.symbols.length) {
+      setErrorMessage("Select at least one symbol before scanning.");
+      setSignals(null);
+      return;
+    }
+
     setLoading(true);
     setErrorMessage(null);
 
@@ -175,6 +193,7 @@ export default function TradingDashboard() {
   useEffect(() => {
     // Initial fetch on mount
     fetchScan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const latestScan = signals && signals.length > 0 ? signals[0] : null;
@@ -187,30 +206,23 @@ export default function TradingDashboard() {
     );
 
   // Flatten all trades across symbols for the Signals view
-  const allTrades = useMemo(() => {
+  const allTrades = useMemo<FlattenedTradeRow[]>(() => {
     if (!latestScan) return [];
 
-    const rows: {
-      symbol: SymbolCode;
-      trend: string;
-      location: string;
-      trade: any;
-    }[] = [];
+    const rows: FlattenedTradeRow[] = [];
 
-    (Object.keys(latestScan.symbols) as SymbolCode[]).forEach(
-      (symbol) => {
-        const s = latestScan.symbols[symbol];
-        if (!s || isSymbolScanError(s) || !s.trades) return;
-        s.trades.forEach((trade) => {
-          rows.push({
-            symbol,
-            trend: s.trend,
-            location: s.location,
-            trade,
-          });
+    (Object.keys(latestScan.symbols) as SymbolCode[]).forEach((symbol) => {
+      const s = latestScan.symbols[symbol];
+      if (!s || isSymbolScanError(s) || !s.trades) return;
+      s.trades.forEach((trade) => {
+        rows.push({
+          symbol,
+          trend: s.trend,
+          location: s.location,
+          trade,
         });
-      },
-    );
+      });
+    });
 
     return rows;
   }, [latestScan]);
@@ -245,7 +257,7 @@ export default function TradingDashboard() {
     return Array.from(options);
   }, [allTrades]);
 
-  const filteredTrades = useMemo(() => {
+  const filteredTrades = useMemo<FlattenedTradeRow[]>(() => {
     return allTrades.filter((row) => {
       if (symbolFilter !== "all" && row.symbol !== symbolFilter) return false;
       if (
@@ -260,13 +272,13 @@ export default function TradingDashboard() {
     });
   }, [allTrades, directionFilter, statusFilter, symbolFilter, trendFilter]);
 
-  const sortedTrades = useMemo(() => {
+  const sortedTrades = useMemo<FlattenedTradeRow[]>(() => {
     const rows = [...filteredTrades];
 
     rows.sort((a, b) => {
       const dir = sortDirection === "asc" ? 1 : -1;
 
-      const getValue = (row: (typeof filteredTrades)[number]) => {
+      const getValue = (row: FlattenedTradeRow) => {
         switch (sortKey) {
           case "rr":
             return row.trade.rr ?? Number.NEGATIVE_INFINITY;
@@ -501,9 +513,10 @@ export default function TradingDashboard() {
                         }[status]
                       : "bg-slate-800/60 text-slate-300 border-slate-700/80";
 
-                    const sourceChip = source === "fallback"
-                      ? "bg-amber-500/15 text-amber-200 border-amber-500/40"
-                      : source === "live"
+                    const sourceChip =
+                      source === "fallback"
+                        ? "bg-amber-500/15 text-amber-200 border-amber-500/40"
+                        : source === "live"
                         ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/40"
                         : "bg-slate-800/60 text-slate-300 border-slate-700/80";
 
@@ -600,7 +613,11 @@ export default function TradingDashboard() {
                               No trade candidates for this symbol.
                             </div>
                           ) : (
-                            <div className={`overflow-x-auto ${loading ? "pointer-events-none opacity-50" : ""}`}>
+                            <div
+                              className={`overflow-x-auto ${
+                                loading ? "pointer-events-none opacity-50" : ""
+                              }`}
+                            >
                               <table className="w-full text-[13px]">
                                 <thead>
                                   <tr className="bg-slate-800 text-slate-50">
@@ -628,7 +645,7 @@ export default function TradingDashboard() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {trades.map((t: any, idx: number) => (
+                                  {trades.map((t: TradeCandidate, idx: number) => (
                                     <tr
                                       key={idx}
                                       className="border-b border-slate-700 bg-slate-900 text-slate-50 hover:bg-slate-800"
@@ -771,7 +788,9 @@ export default function TradingDashboard() {
                   </div>
 
                   <div
-                    className={`rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-3 overflow-x-auto ${loading ? "pointer-events-none opacity-50" : ""}`}
+                    className={`rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-3 overflow-x-auto ${
+                      loading ? "pointer-events-none opacity-50" : ""
+                    }`}
                   >
                     <table className="w-full text-[13px]">
                       <thead>
@@ -788,7 +807,9 @@ export default function TradingDashboard() {
                             >
                               Symbol
                               {sortKey === "symbol" && (
-                                <span aria-hidden>{sortDirection === "asc" ? "▲" : "▼"}</span>
+                                <span aria-hidden>
+                                  {sortDirection === "asc" ? "▲" : "▼"}
+                                </span>
                               )}
                             </button>
                           </th>
@@ -807,7 +828,9 @@ export default function TradingDashboard() {
                             >
                               Dir
                               {sortKey === "direction" && (
-                                <span aria-hidden>{sortDirection === "asc" ? "▲" : "▼"}</span>
+                                <span aria-hidden>
+                                  {sortDirection === "asc" ? "▲" : "▼"}
+                                </span>
                               )}
                             </button>
                           </th>
@@ -832,7 +855,9 @@ export default function TradingDashboard() {
                             >
                               R:R
                               {sortKey === "rr" && (
-                                <span aria-hidden>{sortDirection === "asc" ? "▲" : "▼"}</span>
+                                <span aria-hidden>
+                                  {sortDirection === "asc" ? "▲" : "▼"}
+                                </span>
                               )}
                             </button>
                           </th>
@@ -851,7 +876,9 @@ export default function TradingDashboard() {
                             >
                               Trend
                               {sortKey === "trend" && (
-                                <span aria-hidden>{sortDirection === "asc" ? "▲" : "▼"}</span>
+                                <span aria-hidden>
+                                  {sortDirection === "asc" ? "▲" : "▼"}
+                                </span>
                               )}
                             </button>
                           </th>
@@ -870,7 +897,9 @@ export default function TradingDashboard() {
                             >
                               Status
                               {sortKey === "status" && (
-                                <span aria-hidden>{sortDirection === "asc" ? "▲" : "▼"}</span>
+                                <span aria-hidden>
+                                  {sortDirection === "asc" ? "▲" : "▼"}
+                                </span>
                               )}
                             </button>
                           </th>
@@ -1066,7 +1095,8 @@ export default function TradingDashboard() {
                             onChange={(e) =>
                               setScanSettings((prev) => ({
                                 ...prev,
-                                atrWindow: Number(e.target.value) || prev.atrWindow,
+                                atrWindow:
+                                  Number(e.target.value) || prev.atrWindow,
                               }))
                             }
                             aria-label="ATR window"
@@ -1082,7 +1112,9 @@ export default function TradingDashboard() {
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm font-semibold">
-                        <Label htmlFor="structure-lookback">Structure lookback</Label>
+                        <Label htmlFor="structure-lookback">
+                          Structure lookback
+                        </Label>
                         <div className="flex items-center gap-2 text-xs">
                           <Input
                             id="structure-lookback"
@@ -1094,7 +1126,8 @@ export default function TradingDashboard() {
                               setScanSettings((prev) => ({
                                 ...prev,
                                 structureLookback:
-                                  Number(e.target.value) || prev.structureLookback,
+                                  Number(e.target.value) ||
+                                  prev.structureLookback,
                               }))
                             }
                             aria-label="Structure lookback"

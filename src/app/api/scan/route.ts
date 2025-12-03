@@ -166,11 +166,8 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
 export async function GET() {
   try {
     const config = validateLivePriceConfig();
-    if (!config.ok) {
-      return NextResponse.json(
-        { error: config.message },
-        { status: 400 },
-      );
+    if (!config.ok && config.message) {
+      console.warn(config.message);
     }
 
     const scan = await runScanWithLivePrices();
@@ -202,11 +199,8 @@ export async function POST(req: Request) {
     }
 
     const config = validateLivePriceConfig();
-    if (!config.ok) {
-      return NextResponse.json(
-        { error: config.message },
-        { status: 400 },
-      );
+    if (!config.ok && config.message) {
+      console.warn(config.message);
     }
 
     const options = normalizeScanOptions(parsed.data);

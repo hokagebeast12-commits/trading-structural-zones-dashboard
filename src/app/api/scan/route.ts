@@ -143,16 +143,31 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
       return;
     }
 
+    const needsFallback = spotInfo?.spot == null && symbolResult.lastClose != null;
+    const livePrice = needsFallback
+      ? {
+          spot: symbolResult.lastClose,
+          source: "fallback" as const,
+          error:
+            spotInfo?.error ??
+            ({
+              code: "ENV_MISSING" as const,
+              message:
+                "Live prices are not configured; using last daily close as fallback",
+            } satisfies Awaited<ReturnType<typeof getCurrentPrice>>["error"]),
+        }
+      : spotInfo;
+
     const nearest = computeNearestZoneInfo(
       symbolResult.zones ?? [],
-      spotInfo?.spot ?? Number.NaN,
+      livePrice?.spot ?? Number.NaN,
       symbolResult.atr20 ?? null,
     );
 
     // Mutate in place or reassign – both are fine
     scan.symbols[symbol] = {
       ...symbolResult,
-      livePrice: spotInfo,
+      livePrice,
       nearestZone: nearest,
     };
   });

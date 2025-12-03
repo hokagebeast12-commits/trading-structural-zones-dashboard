@@ -541,7 +541,7 @@ export default function TradingDashboard() {
                       >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                           <div>
-                            <CardTitle className="text-sm font-semibold">
+                            <CardTitle className="text-sm font-semibold text-sky-100">
                               {symbol}
                             </CardTitle>
                             <p className="text-xs text-slate-400">

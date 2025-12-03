@@ -133,7 +133,7 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
   // 3) Attach nearestZone info per symbol
   symbolsNeedingPrices.forEach((symbol, idx) => {
     const symbolResult = scan.symbols[symbol];
-    const spotInfo = prices[idx];
+    const rawPrice = prices[idx];
 
     if (!symbolResult) {
       return;
@@ -143,17 +143,41 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
       return;
     }
 
-    const nearest = computeNearestZoneInfo(
-      symbolResult.zones ?? [],
-      spotInfo?.spot ?? Number.NaN,
-      symbolResult.atr20 ?? null,
-    );
+    const hasLiveQuote =
+      typeof rawPrice?.spot === "number" && Number.isFinite(rawPrice.spot);
+    const hasFallback =
+      !hasLiveQuote && typeof symbolResult.lastClose === "number" && Number.isFinite(symbolResult.lastClose);
+
+    const livePrice = hasLiveQuote
+      ? { ...rawPrice, source: rawPrice?.source ?? "live" }
+      : hasFallback
+        ? {
+            spot: symbolResult.lastClose,
+            source: "fallback" as const,
+            error:
+              rawPrice?.error ??
+              ({
+                code: "ENV_MISSING" as const,
+                message:
+                  "Live prices are not configured; using last daily close as fallback",
+              } satisfies Awaited<ReturnType<typeof getCurrentPrice>>["error"]),
+          }
+        : rawPrice;
+
+    const nearestZone =
+      typeof livePrice?.spot === "number" && Number.isFinite(livePrice.spot)
+        ? computeNearestZoneInfo(
+            symbolResult.zones ?? [],
+            livePrice.spot,
+            symbolResult.atr20 ?? null,
+          )
+        : null;
 
     // Mutate in place or reassign – both are fine
     scan.symbols[symbol] = {
       ...symbolResult,
-      livePrice: spotInfo,
-      nearestZone: nearest,
+      livePrice,
+      nearestZone,
     };
   });
 

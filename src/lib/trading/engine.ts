@@ -70,14 +70,15 @@ export async function scanSymbol(
     tradeOptions,
   );
   const trades = [...modelATrades, ...modelBTrades];
-  
+
   return {
     symbol,
     trend,
     atr20,
     location,
     zones,
-    trades
+    trades,
+    lastClose: bars[bars.length - 1].close,
   };
 }
 

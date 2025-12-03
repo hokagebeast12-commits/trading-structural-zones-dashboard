@@ -103,7 +103,7 @@ export async function getCurrentPrice(
   if (!apiUrl || !apiKey) {
     const error = {
       code: "ENV_MISSING" as const,
-      message: "FX_API_URL or FX_API_KEY not set – live prices unavailable",
+      message: "FX_API_URL or FX_API_KEY not set",
     };
     console.warn(error.message);
     return { spot: null, error };
@@ -156,7 +156,7 @@ export async function getCurrentPrice(
     return {
       spot: null,
       error: {
-        code: "NO_TICK",
+        code: "PARSE_ERROR",
         message: `No quote data returned for ${symbol}`,
         details: json,
       },
@@ -184,5 +184,5 @@ export async function getCurrentPrice(
     };
   }
 
-  return { spot: mid };
+  return { spot: mid, source: "live" };
 }

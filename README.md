@@ -72,6 +72,12 @@ npm start
 
 Open [http://localhost:3000](http://localhost:3000) to see your application running.
 
+## Live price configuration
+
+- Set `FX_API_URL` and `FX_API_KEY` to a real market data provider to enable nearest-zone proximity against current quotes.
+- If those variables are missing, the scanner now falls back to the most recent daily close so the UI still shows proximity and trade candidates. The response carries `livePrice.source: "fallback"` and an `ENV_MISSING` error to make the data provenance clear.
+- GPT models are not suitable price feeds; use a financial market API (e.g., your broker or a quotes vendor) for production data.
+
 ## 🤖 Powered by Z.ai
 
 This scaffold is optimized for use with [Z.ai](https://chat.z.ai) - your AI assistant for:

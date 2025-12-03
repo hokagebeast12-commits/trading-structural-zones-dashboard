@@ -482,6 +482,30 @@ export default function TradingDashboard() {
                     const trend = symbolResult.trend;
                     const location = symbolResult.location;
                     const trades = symbolResult.trades ?? [];
+                    const livePrice = symbolResult.livePrice;
+                    const nearestZone = symbolResult.nearestZone;
+
+                    const spotDisplay =
+                      livePrice?.spot != null && Number.isFinite(livePrice.spot)
+                        ? formatPrice(symbol, livePrice.spot)
+                        : "-";
+                    const source = livePrice?.source;
+                    const status = nearestZone?.status;
+
+                    const statusChip = status
+                      ? {
+                          AT_ZONE:
+                            "bg-emerald-500/15 text-emerald-200 border-emerald-500/40",
+                          NEAR: "bg-amber-500/15 text-amber-200 border-amber-500/40",
+                          FAR: "bg-slate-700/50 text-slate-200 border-slate-600/60",
+                        }[status]
+                      : "bg-slate-800/60 text-slate-300 border-slate-700/80";
+
+                    const sourceChip = source === "fallback"
+                      ? "bg-amber-500/15 text-amber-200 border-amber-500/40"
+                      : source === "live"
+                        ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/40"
+                        : "bg-slate-800/60 text-slate-300 border-slate-700/80";
 
                     const trendColor =
                       trend === "Bull"
@@ -526,6 +550,51 @@ export default function TradingDashboard() {
                           </div>
                         </CardHeader>
                         <CardContent className="pt-0">
+                          <div className="mb-4 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+                            <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
+                              <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                                Live Price
+                              </p>
+                              <div className="flex items-center justify-between pt-1">
+                                <span className="text-sm font-semibold text-slate-50">
+                                  {spotDisplay}
+                                </span>
+                                <span
+                                  className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${sourceChip}`}
+                                >
+                                  {source ?? "unknown"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
+                              <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                                Nearest Zone
+                              </p>
+                              <div className="flex items-center justify-between pt-1">
+                                <span className="text-sm font-semibold text-slate-50">
+                                  {status ?? "-"}
+                                </span>
+                                <span
+                                  className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusChip}`}
+                                >
+                                  {status ?? "N/A"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
+                              <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                                Fallback Close
+                              </p>
+                              <div className="flex items-center justify-between pt-1">
+                                <span className="text-sm font-semibold text-slate-50">
+                                  {formatPrice(symbol, symbolResult.lastClose)}
+                                </span>
+                                <span className="ml-2 inline-flex items-center rounded-full border border-slate-700 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-300">
+                                  Daily
+                                </span>
+                              </div>
+                            </div>
+                          </div>
                           {trades.length === 0 ? (
                             <div className="py-4 text-xs text-slate-400">
                               No trade candidates for this symbol.

@@ -1,6 +1,17 @@
 // All supported symbols in the scanner
 export type SymbolCode = "XAUUSD" | "EURUSD" | "GBPJPY" | "GBPUSD";
 
+export interface LivePriceError {
+  code: "ENV_MISSING" | "HTTP_ERROR" | "PARSE_ERROR" | "NO_TICK";
+  message: string;
+  details?: unknown;
+}
+
+export interface LivePriceSnapshot {
+  spot: number | null;
+  error?: LivePriceError;
+}
+
 // Scan request payload coming from the dashboard
 export interface ScanFilters {
   minRr?: number;
@@ -98,6 +109,7 @@ export interface SymbolScanResult {
   location: "Discount" | "Mid" | "Premium";
   zones: OcZone[];
   trades: TradeCandidate[];
+  livePrice?: LivePriceSnapshot;
 
   /** Optional live-price proximity info (if live prices are available) */
   nearestZone?: NearestZoneInfo | null;

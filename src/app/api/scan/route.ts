@@ -1,5 +1,6 @@
 // src/app/api/scan/route.ts
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { scanMarket } from "@/lib/trading/engine";
 import type { ScanOptions, ScanResponse, SymbolCode } from "@/lib/trading/types";
 import { isSymbolScanError } from "@/lib/trading/types";
@@ -13,64 +14,88 @@ const SUPPORTED_SYMBOLS: SymbolCode[] = [
   "GBPJPY",
 ];
 
-function normalizeScanOptions(body: unknown): ScanOptions {
-  if (!body || typeof body !== "object") {
-    return {};
+const scanPayloadSchema = z
+  .object({
+    date: z
+      .string()
+      .trim()
+      .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/u, {
+        message: "Invalid date format (expected yyyy-mm-dd)",
+      })
+      .optional(),
+    symbols: z
+      .array(z.enum(SUPPORTED_SYMBOLS, { invalid_type_error: "Invalid symbol" }))
+      .nonempty({ message: "At least one symbol is required" })
+      .optional(),
+    filters: z
+      .object({
+        minRr: z
+          .number({ invalid_type_error: "minRr must be a number" })
+          .finite()
+          .optional(),
+        spreadCap: z
+          .number({ invalid_type_error: "spreadCap must be a number" })
+          .finite()
+          .optional(),
+      })
+      .strict()
+      .optional(),
+    params: z
+      .object({
+        atrWindow: z
+          .number({ invalid_type_error: "atrWindow must be a number" })
+          .finite()
+          .optional(),
+        structureLookback: z
+          .number({ invalid_type_error: "structureLookback must be a number" })
+          .finite()
+          .optional(),
+        trendLookback: z
+          .number({ invalid_type_error: "trendLookback must be a number" })
+          .finite()
+          .optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+function validateLivePriceConfig(): { ok: boolean; message?: string } {
+  const missing: string[] = [];
+  if (!process.env.FX_API_URL) {
+    missing.push("FX_API_URL");
+  }
+  if (!process.env.FX_API_KEY) {
+    missing.push("FX_API_KEY");
   }
 
-  const payload = body as Record<string, unknown>;
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      message: `Missing live price configuration: ${missing.join(", ")}`,
+    };
+  }
+
+  return { ok: true };
+}
+
+function normalizeScanOptions(payload: z.infer<typeof scanPayloadSchema>): ScanOptions {
   const options: ScanOptions = {};
 
-  if (typeof payload.date === "string" && payload.date.trim()) {
+  if (payload.date) {
     options.date = payload.date;
   }
 
-  if (Array.isArray(payload.symbols)) {
-    const symbols = payload.symbols.filter((s): s is SymbolCode =>
-      SUPPORTED_SYMBOLS.includes(s as SymbolCode),
-    );
-    if (symbols.length > 0) {
-      options.symbols = symbols;
-    }
+  if (payload.symbols) {
+    options.symbols = payload.symbols;
   }
 
-  if (payload.filters && typeof payload.filters === "object") {
-    const filters = payload.filters as Record<string, unknown>;
-    options.filters = {};
-
-    if (typeof filters.minRr === "number" && Number.isFinite(filters.minRr)) {
-      options.filters.minRr = filters.minRr;
-    }
-
-    if (
-      typeof filters.spreadCap === "number" &&
-      Number.isFinite(filters.spreadCap)
-    ) {
-      options.filters.spreadCap = filters.spreadCap;
-    }
+  if (payload.filters) {
+    options.filters = { ...payload.filters };
   }
 
-  if (payload.params && typeof payload.params === "object") {
-    const params = payload.params as Record<string, unknown>;
-    options.params = {};
-
-    if (typeof params.atrWindow === "number" && Number.isFinite(params.atrWindow)) {
-      options.params.atrWindow = params.atrWindow;
-    }
-
-    if (
-      typeof params.structureLookback === "number" &&
-      Number.isFinite(params.structureLookback)
-    ) {
-      options.params.structureLookback = params.structureLookback;
-    }
-
-    if (
-      typeof params.trendLookback === "number" &&
-      Number.isFinite(params.trendLookback)
-    ) {
-      options.params.trendLookback = params.trendLookback;
-    }
+  if (payload.params) {
+    options.params = { ...payload.params };
   }
 
   return options;
@@ -100,7 +125,7 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
         return p;
       } catch (err) {
         console.error("Failed to fetch live price for", symbol, err);
-        return null;
+        return { spot: null, error: { code: "HTTP_ERROR", message: String(err) } };
       }
     }),
   );
@@ -108,9 +133,9 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
   // 3) Attach nearestZone info per symbol
   symbolsNeedingPrices.forEach((symbol, idx) => {
     const symbolResult = scan.symbols[symbol];
-    const spot = prices[idx];
+    const spotInfo = prices[idx];
 
-    if (!symbolResult || spot == null) {
+    if (!symbolResult) {
       return;
     }
 
@@ -127,6 +152,7 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
     // Mutate in place or reassign – both are fine
     scan.symbols[symbol] = {
       ...symbolResult,
+      livePrice: spotInfo,
       nearestZone: nearest,
     };
   });
@@ -140,6 +166,11 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
  */
 export async function GET() {
   try {
+    const config = validateLivePriceConfig();
+    if (!config.ok && config.message) {
+      console.warn(config.message);
+    }
+
     const scan = await runScanWithLivePrices();
     return NextResponse.json({ signals: [scan] });
   } catch (err) {
@@ -157,12 +188,33 @@ export async function GET() {
  */
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => null);
-    const options = normalizeScanOptions(body);
+    const raw = await req.text();
+    const body = raw ? JSON.parse(raw) : {};
 
+    const parsed = scanPayloadSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const config = validateLivePriceConfig();
+    if (!config.ok && config.message) {
+      console.warn(config.message);
+    }
+
+    const options = normalizeScanOptions(parsed.data);
     const scan = await runScanWithLivePrices(options);
     return NextResponse.json({ signals: [scan] });
   } catch (err) {
+    if (err instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400 },
+      );
+    }
+
     console.error("Error in POST /api/scan:", err);
     return NextResponse.json(
       { error: "Scan failed" },

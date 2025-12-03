@@ -10,6 +10,7 @@ export interface ScanFilters {
 export interface ScanParams {
   atrWindow?: number;
   structureLookback?: number;
+  trendLookback?: number;
 }
 
 export interface ScanOptions {

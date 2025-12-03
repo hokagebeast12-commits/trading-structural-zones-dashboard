@@ -63,6 +63,13 @@ function normalizeScanOptions(body: unknown): ScanOptions {
     ) {
       options.params.structureLookback = params.structureLookback;
     }
+
+    if (
+      typeof params.trendLookback === "number" &&
+      Number.isFinite(params.trendLookback)
+    ) {
+      options.params.trendLookback = params.trendLookback;
+    }
   }
 
   return options;

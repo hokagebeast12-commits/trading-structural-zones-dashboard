@@ -20,7 +20,7 @@ export async function scanSymbol(
   );
   const trendLookback = Math.max(
     1,
-    options?.params?.structureLookback ?? CONFIG.trend_lookback,
+    options?.params?.trendLookback ?? CONFIG.trend_lookback,
   );
   const atrWindow = Math.max(2, options?.params?.atrWindow ?? 20);
   const minRr = options?.filters?.minRr ?? CONFIG.min_rr;

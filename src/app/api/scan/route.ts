@@ -1,7 +1,12 @@
 // src/app/api/scan/route.ts
 import { NextResponse } from "next/server";
 import { scanMarket } from "@/lib/trading/engine";
-import type { ScanOptions, ScanResponse, SymbolCode } from "@/lib/trading/types";
+import type {
+  LivePriceSnapshot,
+  ScanOptions,
+  ScanResponse,
+  SymbolCode,
+} from "@/lib/trading/types";
 import { getCurrentPrice } from "@/lib/trading/live-prices";
 import { computeNearestZoneInfo } from "@/lib/trading/nearest-zone";
 
@@ -11,6 +16,25 @@ const SUPPORTED_SYMBOLS: SymbolCode[] = [
   "GBPUSD",
   "GBPJPY",
 ];
+
+function validateLivePriceConfig(): { ok: boolean; message?: string } {
+  const missing: string[] = [];
+  if (!process.env.FX_API_URL) {
+    missing.push("FX_API_URL");
+  }
+  if (!process.env.FX_API_KEY) {
+    missing.push("FX_API_KEY");
+  }
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      message: `Missing live price configuration: ${missing.join(", ")}`,
+    };
+  }
+
+  return { ok: true };
+}
 
 function normalizeScanOptions(body: unknown): ScanOptions {
   if (!body || typeof body !== "object") {
@@ -88,14 +112,14 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
   const symbols = Object.keys(scan.symbols) as SymbolCode[];
 
   // 2) Fetch current prices in parallel
-  const prices = await Promise.all(
+  const prices: LivePriceSnapshot[] = await Promise.all(
     symbols.map(async (symbol) => {
       try {
         const p = await getCurrentPrice(symbol);
         return p;
       } catch (err) {
         console.error("Failed to fetch live price for", symbol, err);
-        return null;
+        return { spot: null, error: { code: "HTTP_ERROR", message: String(err) } };
       }
     }),
   );
@@ -103,21 +127,25 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
   // 3) Attach nearestZone info per symbol
   symbols.forEach((symbol, idx) => {
     const symbolResult = scan.symbols[symbol];
-    const spot = prices[idx];
+    const spotInfo = prices[idx];
 
-    if (!symbolResult || spot == null) {
+    if (!symbolResult) {
       return;
     }
 
-    const nearest = computeNearestZoneInfo(
-      symbolResult.zones ?? [],
-      spot,
-      symbolResult.atr20 ?? null,
-    );
+    const nearest =
+      spotInfo?.spot != null
+        ? computeNearestZoneInfo(
+            symbolResult.zones ?? [],
+            spotInfo.spot,
+            symbolResult.atr20 ?? null,
+          )
+        : null;
 
     // Mutate in place or reassign – both are fine
     scan.symbols[symbol] = {
       ...symbolResult,
+      livePrice: spotInfo,
       nearestZone: nearest,
     };
   });
@@ -131,6 +159,14 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
  */
 export async function GET() {
   try {
+    const config = validateLivePriceConfig();
+    if (!config.ok) {
+      return NextResponse.json(
+        { error: config.message },
+        { status: 400 },
+      );
+    }
+
     const scan = await runScanWithLivePrices();
     return NextResponse.json({ signals: [scan] });
   } catch (err) {
@@ -150,6 +186,14 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
     const options = normalizeScanOptions(body);
+
+    const config = validateLivePriceConfig();
+    if (!config.ok) {
+      return NextResponse.json(
+        { error: config.message },
+        { status: 400 },
+      );
+    }
 
     const scan = await runScanWithLivePrices(options);
     return NextResponse.json({ signals: [scan] });

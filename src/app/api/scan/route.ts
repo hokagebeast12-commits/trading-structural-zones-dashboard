@@ -145,7 +145,7 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
 
     const nearest = computeNearestZoneInfo(
       symbolResult.zones ?? [],
-      spot,
+      spotInfo?.spot ?? Number.NaN,
       symbolResult.atr20 ?? null,
     );
 

@@ -1,9 +1,72 @@
 // src/app/api/scan/route.ts
 import { NextResponse } from "next/server";
 import { scanMarket } from "@/lib/trading/engine";
-import type { ScanResponse, SymbolCode } from "@/lib/trading/types";
+import type { ScanOptions, ScanResponse, SymbolCode } from "@/lib/trading/types";
 import { getCurrentPrice } from "@/lib/trading/live-prices";
 import { computeNearestZoneInfo } from "@/lib/trading/nearest-zone";
+
+const SUPPORTED_SYMBOLS: SymbolCode[] = [
+  "XAUUSD",
+  "EURUSD",
+  "GBPUSD",
+  "GBPJPY",
+];
+
+function normalizeScanOptions(body: unknown): ScanOptions {
+  if (!body || typeof body !== "object") {
+    return {};
+  }
+
+  const payload = body as Record<string, unknown>;
+  const options: ScanOptions = {};
+
+  if (typeof payload.date === "string" && payload.date.trim()) {
+    options.date = payload.date;
+  }
+
+  if (Array.isArray(payload.symbols)) {
+    const symbols = payload.symbols.filter((s): s is SymbolCode =>
+      SUPPORTED_SYMBOLS.includes(s as SymbolCode),
+    );
+    if (symbols.length > 0) {
+      options.symbols = symbols;
+    }
+  }
+
+  if (payload.filters && typeof payload.filters === "object") {
+    const filters = payload.filters as Record<string, unknown>;
+    options.filters = {};
+
+    if (typeof filters.minRr === "number" && Number.isFinite(filters.minRr)) {
+      options.filters.minRr = filters.minRr;
+    }
+
+    if (
+      typeof filters.spreadCap === "number" &&
+      Number.isFinite(filters.spreadCap)
+    ) {
+      options.filters.spreadCap = filters.spreadCap;
+    }
+  }
+
+  if (payload.params && typeof payload.params === "object") {
+    const params = payload.params as Record<string, unknown>;
+    options.params = {};
+
+    if (typeof params.atrWindow === "number" && Number.isFinite(params.atrWindow)) {
+      options.params.atrWindow = params.atrWindow;
+    }
+
+    if (
+      typeof params.structureLookback === "number" &&
+      Number.isFinite(params.structureLookback)
+    ) {
+      options.params.structureLookback = params.structureLookback;
+    }
+  }
+
+  return options;
+}
 
 /**
  * Core scan routine:
@@ -11,9 +74,9 @@ import { computeNearestZoneInfo } from "@/lib/trading/nearest-zone";
  *  - Fetches live prices for each symbol.
  *  - Computes nearest zone vs spot and attaches it to each SymbolScanResult.
  */
-async function runScanWithLivePrices(): Promise<ScanResponse> {
+async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanResponse> {
   // 1) Run the existing engine scan (no changes to engine.ts)
-  const scan = await scanMarket(); // expected to return ScanResponse shape
+  const scan = await scanMarket(options); // expected to return ScanResponse shape
 
   const symbols = Object.keys(scan.symbols) as SymbolCode[];
 
@@ -78,7 +141,10 @@ export async function GET() {
  */
 export async function POST(req: Request) {
   try {
-    const scan = await runScanWithLivePrices();
+    const body = await req.json().catch(() => null);
+    const options = normalizeScanOptions(body);
+
+    const scan = await runScanWithLivePrices(options);
     return NextResponse.json({ signals: [scan] });
   } catch (err) {
     console.error("Error in POST /api/scan:", err);

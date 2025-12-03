@@ -1,6 +1,24 @@
 // All supported symbols in the scanner
 export type SymbolCode = "XAUUSD" | "EURUSD" | "GBPJPY" | "GBPUSD";
 
+// Scan request payload coming from the dashboard
+export interface ScanFilters {
+  minRr?: number;
+  spreadCap?: number;
+}
+
+export interface ScanParams {
+  atrWindow?: number;
+  structureLookback?: number;
+}
+
+export interface ScanOptions {
+  symbols?: SymbolCode[];
+  filters?: ScanFilters;
+  params?: ScanParams;
+  date?: string;
+}
+
 // Single OHLC bar (daily in your current setup)
 export interface OhlcBar {
   date: string;   // ISO yyyy-mm-dd (UTC is fine)
@@ -87,7 +105,7 @@ export interface SymbolScanResult {
 // Top-level scan response returned by /api/scan
 export interface ScanResponse {
   date: string;   // echo of query param or today
-  symbols: Record<SymbolCode, SymbolScanResult>;
+  symbols: Partial<Record<SymbolCode, SymbolScanResult>>;
 }
 
 // Static configuration for the scanner

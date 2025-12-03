@@ -9,14 +9,25 @@ export interface TrendAnalysis {
   atr20: number;
 }
 
-export function classifyTrend(bars: OhlcBar[]): TrendAnalysis {
-  if (bars.length < CONFIG.trend_lookback + 1) {
+export function classifyTrend(
+  bars: OhlcBar[],
+  options?: {
+    trendLookback?: number;
+    lookbackDays?: number;
+    atrWindow?: number;
+  },
+): TrendAnalysis {
+  const trendLookback = options?.trendLookback ?? CONFIG.trend_lookback;
+  const lookbackDays = options?.lookbackDays ?? CONFIG.lookback_days;
+  const atrWindow = options?.atrWindow ?? 20;
+
+  if (bars.length < trendLookback + 1) {
     return { trend: "Neutral", location: "Mid", atr20: 0 };
   }
-  
+
   // Use last trend_lookback bars (excluding today for trend calculation)
-  const trendBars = bars.slice(-CONFIG.trend_lookback - 1, -1);
-  const lookbackBars = bars.slice(-CONFIG.lookback_days);
+  const trendBars = bars.slice(-trendLookback - 1, -1);
+  const lookbackBars = bars.slice(-lookbackDays);
   
   // Calculate trend
   let upDays = 0;
@@ -42,8 +53,8 @@ export function classifyTrend(bars: OhlcBar[]): TrendAnalysis {
   
   // Determine trend
   let trend: Trend = "Neutral";
-  const upThreshold = 0.6 * CONFIG.trend_lookback;
-  const downThreshold = 0.6 * CONFIG.trend_lookback;
+  const upThreshold = 0.6 * trendLookback;
+  const downThreshold = 0.6 * trendLookback;
   
   if (upDays >= upThreshold && pos > 0.6) {
     trend = "Bull";
@@ -59,8 +70,8 @@ export function classifyTrend(bars: OhlcBar[]): TrendAnalysis {
     location = "Premium";
   }
   
-  // Calculate ATR (20-day average true range)
-  const atrBars = bars.slice(-20);
+  // Calculate ATR (windowed average true range)
+  const atrBars = bars.slice(-atrWindow);
   let atrSum = 0;
   for (let i = 1; i < atrBars.length; i++) {
     const high = atrBars[i].high;
@@ -73,7 +84,7 @@ export function classifyTrend(bars: OhlcBar[]): TrendAnalysis {
     );
     atrSum += tr;
   }
-  const atr20 = atrSum / (atrBars.length - 1);
-  
-  return { trend, location, atr20 };
+  const atrValue = atrBars.length > 1 ? atrSum / (atrBars.length - 1) : 0;
+
+  return { trend, location, atr20: atrValue };
 }

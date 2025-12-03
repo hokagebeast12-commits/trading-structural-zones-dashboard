@@ -3,8 +3,8 @@ import { Server } from 'socket.io'
 
 const httpServer = createServer()
 const io = new Server(httpServer, {
-  // DO NOT change the path, it is used by Caddy to forward the request to the correct port
-  path: '/',
+  // Keep the path aligned with the client Socket.IO path to ensure connections are routed correctly
+  path: '/socket.io',
   cors: {
     origin: "*",
     methods: ["GET", "POST"]

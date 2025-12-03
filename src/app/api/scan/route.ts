@@ -23,9 +23,7 @@ const scanPayloadSchema = z
     date: z
       .string()
       .trim()
-      .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/u, {
-        message: "Invalid date format (expected yyyy-mm-dd)",
-      })
+      .regex(/^\d{4}-\d{2}-\d{2}$/u, "Invalid date format (expected yyyy-mm-dd)")
       .optional(),
     symbols: z
       .array(z.enum(SUPPORTED_SYMBOLS, { invalid_type_error: "Invalid symbol" }))
@@ -64,25 +62,6 @@ const scanPayloadSchema = z
   })
   .strict();
 
-function validateLivePriceConfig(): { ok: boolean; message?: string } {
-  const missing: string[] = [];
-  if (!process.env.FX_API_URL) {
-    missing.push("FX_API_URL");
-  }
-  if (!process.env.FX_API_KEY) {
-    missing.push("FX_API_KEY");
-  }
-
-  if (missing.length > 0) {
-    return {
-      ok: false,
-      message: `Missing live price configuration: ${missing.join(", ")}`,
-    };
-  }
-
-  return { ok: true };
-}
-
 function normalizeScanOptions(payload: z.infer<typeof scanPayloadSchema>): ScanOptions {
   const options: ScanOptions = {};
 
@@ -90,7 +69,7 @@ function normalizeScanOptions(payload: z.infer<typeof scanPayloadSchema>): ScanO
     options.date = payload.date;
   }
 
-  if (payload.symbols) {
+  if (payload.symbols && payload.symbols.length > 0) {
     options.symbols = payload.symbols;
   }
 
@@ -191,21 +170,24 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
-    const parsed = scanPayloadSchema.safeParse(body);
+    const parsed = scanPayloadSchema.safeParse(body ?? {});
+
     if (!parsed.success) {
+      const details = parsed.error.issues.map((issue) => ({
+        field: issue.path.join("."),
+        message: issue.message,
+      }));
+
+      console.warn("Scan payload validation failed", { details, body });
+
       return NextResponse.json(
-        { error: parsed.error.flatten() },
+        { error: "Invalid scan payload", details },
         { status: 400 },
       );
     }
 
-    const config = validateLivePriceConfig();
-    if (!config.ok) {
-      return NextResponse.json(
-        { error: config.message },
-        { status: 400 },
-      );
-    }
+    const options = normalizeScanOptions(parsed.data);
+    console.info("Scan options normalized", options);
 
     const options = normalizeScanOptions(parsed.data);
     const scan = await runScanWithLivePrices(options);

@@ -78,7 +78,7 @@ export async function scanSymbol(
     location,
     zones,
     trades,
-    lastClose: bars[bars.length - 1].close,
+    lastClose: bars[bars.length - 1]?.close,
   };
 }
 

@@ -143,41 +143,32 @@ async function runScanWithLivePrices(options?: ScanOptions): Promise<ScanRespons
       return;
     }
 
-    const hasLiveQuote =
-      typeof rawPrice?.spot === "number" && Number.isFinite(rawPrice.spot);
-    const hasFallback =
-      !hasLiveQuote && typeof symbolResult.lastClose === "number" && Number.isFinite(symbolResult.lastClose);
+    const needsFallback = spotInfo?.spot == null && symbolResult.lastClose != null;
+    const livePrice = needsFallback
+      ? {
+          spot: symbolResult.lastClose,
+          source: "fallback" as const,
+          error:
+            spotInfo?.error ??
+            ({
+              code: "ENV_MISSING" as const,
+              message:
+                "Live prices are not configured; using last daily close as fallback",
+            } satisfies Awaited<ReturnType<typeof getCurrentPrice>>["error"]),
+        }
+      : spotInfo;
 
-    const livePrice = hasLiveQuote
-      ? { ...rawPrice, source: rawPrice?.source ?? "live" }
-      : hasFallback
-        ? {
-            spot: symbolResult.lastClose,
-            source: "fallback" as const,
-            error:
-              rawPrice?.error ??
-              ({
-                code: "ENV_MISSING" as const,
-                message:
-                  "Live prices are not configured; using last daily close as fallback",
-              } satisfies Awaited<ReturnType<typeof getCurrentPrice>>["error"]),
-          }
-        : rawPrice;
-
-    const nearestZone =
-      typeof livePrice?.spot === "number" && Number.isFinite(livePrice.spot)
-        ? computeNearestZoneInfo(
-            symbolResult.zones ?? [],
-            livePrice.spot,
-            symbolResult.atr20 ?? null,
-          )
-        : null;
+    const nearest = computeNearestZoneInfo(
+      symbolResult.zones ?? [],
+      livePrice?.spot ?? Number.NaN,
+      symbolResult.atr20 ?? null,
+    );
 
     // Mutate in place or reassign – both are fine
     scan.symbols[symbol] = {
       ...symbolResult,
       livePrice,
-      nearestZone,
+      nearestZone: nearest,
     };
   });
 

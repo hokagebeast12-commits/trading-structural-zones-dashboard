@@ -14,10 +14,12 @@ export function classifyTrend(
   options?: {
     lookbackDays?: number;
     atrWindow?: number;
+    trendLookback?: number;
   },
 ): TrendAnalysis {
   const lookbackDays = options?.lookbackDays ?? CONFIG.lookback_days;
   const atrWindow = options?.atrWindow ?? 20;
+  const trendLookback = options?.trendLookback ?? CONFIG.trend_lookback;
 
   // Need at least two sessions to detect a break of the prior day's extremes
   if (bars.length < 2) {
@@ -40,8 +42,9 @@ export function classifyTrend(
   }
 
   // Determine trend based on violation of the previous day's high/low
-  const prevBar = bars[bars.length - 2];
-  const currentBar = bars[bars.length - 1];
+  const trendBars = bars.slice(-Math.max(2, trendLookback));
+  const prevBar = trendBars[trendBars.length - 2];
+  const currentBar = trendBars[trendBars.length - 1];
 
   let trend: Trend = "Neutral";
   const brokeHigh = currentBar.high > prevBar.high;

@@ -1,4 +1,5 @@
 import type React from "react";
+import type { CandidateDiagnostics } from "@/lib/trading/types";
 
 export type TrendDirection = "bull" | "bear" | "range";
 
@@ -8,16 +9,8 @@ export type ZoneProximityLabel = "NEAR" | "MID" | "FAR";
 
 export type CandidateStatus = "none" | "watch" | "long" | "short";
 
-export interface CandidateCondition {
-  id: string;
-  label: string;
-  passed: boolean;
-}
-
-export interface CandidateDiagnostics {
-  summary: string;
-  conditions: CandidateCondition[];
-}
+export type CandidateCondition = CandidateDiagnostics["conditions"][number];
+export type { CandidateDiagnostics };
 
 export type CloseMode = "manual" | "auto";
 

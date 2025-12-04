@@ -8,6 +8,7 @@ import type {
   SymbolCode,
 } from "@/lib/trading/types";
 import { isSymbolScanError } from "@/lib/trading/types";
+import { buildCandidateDiagnostics } from "@/lib/trading/buildCandidateDiagnostics";
 import { getCurrentPrice } from "@/lib/trading/live-prices";
 import { computeNearestZoneInfo } from "@/lib/trading/nearest-zone";
 
@@ -244,10 +245,21 @@ async function runScanWithLivePrices(
           )
         : null;
 
+    const candidateDiagnostics = buildCandidateDiagnostics({
+      trend: symbolResult.trend,
+      location: symbolResult.location,
+      nearestZone,
+      pullback: symbolResult.pullback,
+      hasModelSignal: Array.isArray(symbolResult.trades)
+        ? symbolResult.trades.length > 0
+        : false,
+    });
+
     scan.symbols[symbol] = {
       ...symbolResult,
       livePrice,
       nearestZone,
+      candidateDiagnostics,
     };
   });
 

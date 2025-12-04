@@ -112,9 +112,7 @@ export default function TradingDashboard() {
 
   const symbolsList = useMemo(() => SYMBOLS_LIST, []);
   const manualClosePayload = useMemo(() => {
-    const payload: Partial<
-      Record<SymbolCode, { enabled: boolean; close?: number }>
-    > = {};
+    const payload: Partial<Record<SymbolCode, { enabled: boolean; close: number }>> = {};
 
     symbolsList.forEach((symbol) => {
       const state = manualCloses[symbol];
@@ -138,7 +136,7 @@ export default function TradingDashboard() {
         structureLookback: number;
       };
       manualCloses?: Partial<
-        Record<SymbolCode, { enabled: boolean; close?: number }>
+        Record<SymbolCode, { enabled: boolean; close: number }>
       >;
     } = {
       symbols: symbolsList.filter((symbol) => scanSettings.symbols[symbol]),
@@ -551,13 +549,30 @@ export default function TradingDashboard() {
                     const livePrice = symbolResult.livePrice;
                     const nearestZone = symbolResult.nearestZone;
 
+                    const spotValue =
+                      nearestZone?.spot ?? livePrice?.spot ?? undefined;
                     const spotDisplay =
-                      livePrice?.spot != null && Number.isFinite(livePrice.spot)
-                        ? formatPrice(symbol, livePrice.spot)
+                      typeof spotValue === "number" && Number.isFinite(spotValue)
+                        ? formatPrice(symbol, spotValue)
                         : "-";
                     const source = livePrice?.source;
                     const isManualSource = source === "manual";
+                    const manualBannerLabel = isManualSource
+                      ? "Manual Close"
+                      : null;
                     const status = nearestZone?.status;
+                    const distanceDisplay =
+                      nearestZone &&
+                      typeof nearestZone.distance === "number" &&
+                      Number.isFinite(nearestZone.distance)
+                        ? formatPrice(symbol, nearestZone.distance)
+                        : null;
+                    const distancePctDisplay =
+                      nearestZone &&
+                      typeof nearestZone.distancePct === "number" &&
+                      Number.isFinite(nearestZone.distancePct)
+                        ? `${nearestZone.distancePct.toFixed(2)}%`
+                        : null;
 
                     const statusChip = status
                       ? {
@@ -635,10 +650,13 @@ export default function TradingDashboard() {
                                   {source ?? "unknown"}
                                 </span>
                               </div>
-                              {isManualSource && (
-                                <div className="mt-2 flex justify-end">
-                                  <span className="inline-flex items-center rounded-full border border-sky-500/50 bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-100">
-                                    Manual Close
+                              {manualBannerLabel && (
+                                <div className="mt-2 flex justify-between text-[11px] text-slate-300">
+                                  <span className="rounded-full border border-sky-500/50 bg-sky-500/15 px-2 py-0.5 font-semibold uppercase tracking-wide text-sky-100">
+                                    {manualBannerLabel}
+                                  </span>
+                                  <span className="text-slate-400">
+                                    Using manual close for spot.
                                   </span>
                                 </div>
                               )}
@@ -656,6 +674,20 @@ export default function TradingDashboard() {
                                 >
                                   {status ?? "N/A"}
                                 </span>
+                              </div>
+                              <div className="mt-2 text-[11px] text-slate-300">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400">Distance</span>
+                                  <span className="font-semibold text-slate-100">
+                                    {distanceDisplay ?? "-"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400">Distance %</span>
+                                  <span className="font-semibold text-slate-100">
+                                    {distancePctDisplay ?? "-"}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                             <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">

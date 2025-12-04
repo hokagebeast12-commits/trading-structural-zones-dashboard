@@ -5,11 +5,13 @@ import {
   generateModelATrades,
   generateModelBTrades,
   generateModelCTrades,
+  generateModelDTrades,
 } from "./models";
 import {
   computePullbackHistoryStats,
   computePullbackStats,
 } from "./pullback";
+import { evaluateSweetSpot } from "./sweet-spot";
 import {
   SYMBOLS,
   SymbolCode,
@@ -19,6 +21,7 @@ import {
   CONFIG,
   ScanOptions,
 } from "./types";
+import { computeNearestZoneInfo } from "./nearest-zone";
 
 export async function scanSymbol(
   symbol: SymbolCode,
@@ -69,11 +72,55 @@ export async function scanSymbol(
     mode: "matchingTrend",
   });
 
+  const bucketEntries = pullbackHistory?.bucketCounts
+    ? Object.entries(pullbackHistory.bucketCounts)
+    : [];
+
+  const dominantBucket =
+    bucketEntries.length > 0
+      ? bucketEntries.reduce(
+          (acc, [bucket, count]) => {
+            if (count > acc.count) return { bucket, count };
+            return acc;
+          },
+          { bucket: "", count: -Infinity },
+        ).bucket || null
+      : null;
+
+  const typicalPullback = pullbackHistory
+    ? {
+        lookbackDays: pullbackHistory.window,
+        samples: pullbackHistory.sampleSize,
+        meanPct: pullbackHistory.meanDepth,
+        medianPct: pullbackHistory.medianDepth,
+        dominantBucket,
+      }
+    : undefined;
+
   // Find structural zones
   const zones = findStructuralZones(bars, symbol, lookbackDays);
 
   // Create liquidity map
   const liquidity = createLiquidityMap(bars.slice(-lookbackDays));
+
+  const manualClose = options?.manualCloses?.[symbol];
+  const manualSpot =
+    manualClose?.enabled && typeof manualClose.close === "number"
+      ? manualClose.close
+      : null;
+
+  const baseSpot = manualSpot ?? bars[bars.length - 1].close;
+
+  const nearestZoneEstimate = computeNearestZoneInfo(zones, baseSpot, atr20);
+
+  const sweetSpotSignal = evaluateSweetSpot({
+    trend,
+    pullbackDepth: pullback
+      ? { pct: pullback.depth ?? null, bucket: pullback.fibBucket ?? null }
+      : undefined,
+    typicalPullback,
+    nearestZone: nearestZoneEstimate,
+  });
 
   // Generate trades
   const tradeOptions = { minRr, spreadCap };
@@ -100,7 +147,22 @@ export async function scanSymbol(
     symbol,
     tradeOptions,
   );
-  const trades = [...modelATrades, ...modelBTrades, ...modelCTrades];
+  const modelDTrades = generateModelDTrades(trend, zones, liquidity, bars, symbol, {
+    ...tradeOptions,
+    pullbackDepth: pullback
+      ? { pct: pullback.depth ?? null, bucket: pullback.fibBucket ?? null }
+      : null,
+    typicalPullback,
+    nearestZone: nearestZoneEstimate,
+    isSweetSpot: sweetSpotSignal.isSweetSpot,
+  });
+
+  const trades = [
+    ...modelATrades,
+    ...modelBTrades,
+    ...modelCTrades,
+    ...modelDTrades,
+  ];
 
   return {
     kind: "ok",
@@ -114,6 +176,8 @@ export async function scanSymbol(
     lastClose: bars[bars.length - 1].close,
     pullback,
     pullbackHistory,
+    typicalPullback,
+    nearestZone: nearestZoneEstimate,
   };
 }
 

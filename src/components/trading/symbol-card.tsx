@@ -66,6 +66,7 @@ export function SymbolCard(props: SymbolCardProps) {
     <Card
       className={cn(
         "relative flex h-full flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 shadow-sm transition-colors",
+        "text-slate-100",
         isCandidate && "border-emerald-500/60",
       )}
     >

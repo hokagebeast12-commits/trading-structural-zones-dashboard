@@ -122,12 +122,6 @@ export function SymbolCard(props: SymbolCardProps) {
           <p className="text-xl font-semibold tabular-nums">{formatPrice(livePrice)}</p>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Badge
-              variant={closeMode === "manual" ? "outline" : "default"}
-              className="text-[10px] uppercase tracking-wide"
-            >
-              {closeMode === "manual" ? "Manual close" : "Auto close"}
-            </Badge>
-            <Badge
               variant="outline"
               className={cn(
                 "text-[10px] uppercase tracking-wide",
@@ -178,6 +172,22 @@ export function SymbolCard(props: SymbolCardProps) {
             </p>
             <p className="text-sm font-medium tabular-nums">{formatPrice(fallbackClose.price)}</p>
             <p className="text-[11px] text-slate-400">{fallbackClose.timeframeLabel}</p>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-[11px] uppercase tracking-wide text-slate-400">
+                Close mode
+              </span>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] uppercase tracking-wide",
+                  closeMode === "manual"
+                    ? "border-sky-500/60 text-sky-200"
+                    : "border-emerald-500/60 text-emerald-200",
+                )}
+              >
+                {closeMode === "manual" ? "Manual close" : "Auto close"}
+              </Badge>
+            </div>
           </div>
 
           <p className="max-w-[180px] text-right text-[11px] text-slate-400">

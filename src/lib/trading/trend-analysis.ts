@@ -12,56 +12,50 @@ export interface TrendAnalysis {
 export function classifyTrend(
   bars: OhlcBar[],
   options?: {
-    trendLookback?: number;
     lookbackDays?: number;
     atrWindow?: number;
   },
 ): TrendAnalysis {
-  const trendLookback = options?.trendLookback ?? CONFIG.trend_lookback;
   const lookbackDays = options?.lookbackDays ?? CONFIG.lookback_days;
   const atrWindow = options?.atrWindow ?? 20;
 
-  if (bars.length < trendLookback + 1) {
+  // Need at least two sessions to detect a break of the prior day's extremes
+  if (bars.length < 2) {
     return { trend: "Neutral", location: "Mid", atr20: 0 };
   }
 
-  // Use last trend_lookback bars (excluding today for trend calculation)
-  const trendBars = bars.slice(-trendLookback - 1, -1);
+  // Use recent bars for range/location calculations
   const lookbackBars = bars.slice(-lookbackDays);
-  
-  // Calculate trend
-  let upDays = 0;
-  let downDays = 0;
-  
-  for (const bar of trendBars) {
-    const body = bar.close - bar.open;
-    if (body > 0) upDays++;
-    else if (body < 0) downDays++;
-  }
-  
+
   // Calculate position in range
   const highs = lookbackBars.map(b => b.high);
   const lows = lookbackBars.map(b => b.low);
   const maxHigh = Math.max(...highs);
   const minLow = Math.min(...lows);
   const lastClose = bars[bars.length - 1].close;
-  
+
   let pos = 0.5; // Default middle position
   if (maxHigh !== minLow) {
     pos = (lastClose - minLow) / (maxHigh - minLow);
   }
-  
-  // Determine trend
+
+  // Determine trend based on violation of the previous day's high/low
+  const prevBar = bars[bars.length - 2];
+  const currentBar = bars[bars.length - 1];
+
   let trend: Trend = "Neutral";
-  const upThreshold = 0.6 * trendLookback;
-  const downThreshold = 0.6 * trendLookback;
-  
-  if (upDays >= upThreshold && pos > 0.6) {
+  const brokeHigh = currentBar.high > prevBar.high;
+  const brokeLow = currentBar.low < prevBar.low;
+
+  if (brokeHigh && !brokeLow) {
     trend = "Bull";
-  } else if (downDays >= downThreshold && pos < 0.4) {
+  } else if (brokeLow && !brokeHigh) {
     trend = "Bear";
+  } else if (brokeHigh && brokeLow) {
+    // If both extremes were violated, use the closing position to choose a bias
+    trend = lastClose >= prevBar.close ? "Bull" : "Bear";
   }
-  
+
   // Determine location
   let location: Location = "Mid";
   if (pos < 1/3) {

@@ -224,14 +224,21 @@ export function generateModelCTrades(
 
   if (!prevBar || !currentBar) return trades;
 
-  const brokeHigh = currentBar.high > prevBar.high;
-  const brokeLow = currentBar.low < prevBar.low;
+  // Trend-continuation pullback: look for current bar to retest prior-day key levels
+  // (prior high/close/low). C1 and C2 share the same entry logic but differ by
+  // stop placement (swing-based vs. prior-day extreme).
+  if (trend === "Bull") {
+    const keyLevels = [prevBar.high, prevBar.close, prevBar.low];
+    const touchedLevels = keyLevels.filter(level => currentBar.low <= level);
 
-  if (trend === "Bull" && brokeHigh) {
-    const entry = prevBar.high;
+    if (touchedLevels.length === 0) return trades;
+
+    // Enter at the deepest retested level to prioritize the true "buy-low" pullback price
+    const entry = Math.min(...touchedLevels);
     const tp1 = nearestAbove(liquidity.highs, entry);
 
     if (tp1) {
+      // Method C1: swing-based stop below the nearest swing low
       const swingLow = nearestBelow(liquidity.lows, entry);
       if (swingLow) {
         const stop = swingLow - slBuffer;
@@ -250,12 +257,13 @@ export function generateModelCTrades(
               reward_price: reward,
               rr,
               status: "VALID",
-              stopType: "Swing"
+              stopType: "Swing",
             });
           }
         }
       }
 
+      // Method C2: prior-day stop below the previous day's low
       const pdStop = prevBar.low - slBuffer;
       const pdRisk = entry - pdStop;
       if (pdRisk > 0 && pdRisk <= riskCap) {
@@ -272,16 +280,23 @@ export function generateModelCTrades(
             reward_price: pdReward,
             rr: pdRr,
             status: "VALID",
-            stopType: "PD"
+            stopType: "PD",
           });
         }
       }
     }
-  } else if (trend === "Bear" && brokeLow) {
-    const entry = prevBar.low;
+  } else if (trend === "Bear") {
+    const keyLevels = [prevBar.low, prevBar.close, prevBar.high];
+    const touchedLevels = keyLevels.filter(level => currentBar.high >= level);
+
+    if (touchedLevels.length === 0) return trades;
+
+    // Enter at the highest retested level for short entries (best sell-high pullback price)
+    const entry = Math.max(...touchedLevels);
     const tp1 = nearestBelow(liquidity.lows, entry);
 
     if (tp1) {
+      // Method C1: swing-based stop above the nearest swing high
       const swingHigh = nearestAbove(liquidity.highs, entry);
       if (swingHigh) {
         const stop = swingHigh + slBuffer;
@@ -300,12 +315,13 @@ export function generateModelCTrades(
               reward_price: reward,
               rr,
               status: "VALID",
-              stopType: "Swing"
+              stopType: "Swing",
             });
           }
         }
       }
 
+      // Method C2: prior-day stop above the previous day's high
       const pdStop = prevBar.high + slBuffer;
       const pdRisk = pdStop - entry;
       if (pdRisk > 0 && pdRisk <= riskCap) {
@@ -322,7 +338,7 @@ export function generateModelCTrades(
             reward_price: pdReward,
             rr: pdRr,
             status: "VALID",
-            stopType: "PD"
+            stopType: "PD",
           });
         }
       }

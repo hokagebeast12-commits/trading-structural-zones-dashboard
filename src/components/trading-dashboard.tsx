@@ -548,6 +548,12 @@ export default function TradingDashboard() {
                     const trades = symbolResult.trades ?? [];
                     const livePrice = symbolResult.livePrice;
                     const nearestZone = symbolResult.nearestZone;
+                    const pullback = symbolResult.pullback;
+
+                    const pullbackPct =
+                      pullback && Number.isFinite(pullback.depth)
+                        ? (pullback.depth * 100).toFixed(1)
+                        : null;
 
                     const spotValue =
                       nearestZone?.spot ?? livePrice?.spot ?? undefined;
@@ -635,7 +641,7 @@ export default function TradingDashboard() {
                           </div>
                         </CardHeader>
                         <CardContent className="pt-0">
-                          <div className="mb-4 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+                          <div className="mb-4 grid grid-cols-1 gap-2 text-xs sm:grid-cols-4">
                             <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
                               <p className="text-[11px] uppercase tracking-wide text-slate-400">
                                 Live Price
@@ -688,6 +694,19 @@ export default function TradingDashboard() {
                                     {distancePctDisplay ?? "-"}
                                   </span>
                                 </div>
+                              </div>
+                            </div>
+                            <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
+                              <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                                Pullback depth
+                              </p>
+                              <div className="flex items-center justify-between pt-1">
+                                <span className="text-sm font-semibold text-slate-50">
+                                  {pullbackPct != null ? `${pullbackPct}%` : "-"}
+                                </span>
+                                <span className="ml-2 inline-flex items-center rounded-full border border-slate-700 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-300">
+                                  {pullback?.fibBucket ?? "N/A"}
+                                </span>
                               </div>
                             </div>
                             <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">

@@ -5,9 +5,9 @@ import {
   OhlcBar,
   SymbolCode,
   CONFIG,
-} from './types';
-import type { Trend } from './trend-analysis';
-import { nearestAbove, nearestBelow } from './zones';
+} from "./types";
+import type { Trend } from "./trend-analysis";
+import { nearestAbove, nearestBelow } from "./zones";
 
 export function generateModelATrades(
   trend: Trend,
@@ -25,33 +25,31 @@ export function generateModelATrades(
   const spreadCap = options?.spreadCap;
   const currentSpread = bars[bars.length - 1]?.spread;
 
+  // Spread filter
   if (spreadCap != null && currentSpread != null && currentSpread > spreadCap) {
     return trades;
   }
-  
+
   if (trend === "Bull") {
-    // Long trades only - zones below current price
-    const candidateZones = zones.filter(z => z.zone_mid < currentPrice);
-    
+    // Longs from zones below current price
+    const candidateZones = zones.filter((z) => z.zone_mid < currentPrice);
+
     for (const zone of candidateZones) {
       const entry = zone.zone_mid;
       const swingLow = nearestBelow(liquidity.lows, entry);
-      
       if (!swingLow) continue;
-      
+
       const stop = swingLow - slBuffer;
       const risk = entry - stop;
-      
       if (risk <= 0 || risk > riskCap) continue;
-      
+
       const tp1 = nearestAbove(liquidity.highs, entry);
       if (!tp1) continue;
-      
+
       const reward = tp1 - entry;
       const rr = reward / risk;
-      
       if (rr < minRR) continue;
-      
+
       trades.push({
         model: "A",
         direction: "Long",
@@ -62,32 +60,29 @@ export function generateModelATrades(
         reward_price: reward,
         rr,
         status: "VALID",
-        stopType: "Swing"
+        stopType: "Swing",
       });
     }
   } else if (trend === "Bear") {
-    // Short trades only - zones above current price
-    const candidateZones = zones.filter(z => z.zone_mid > currentPrice);
-    
+    // Shorts from zones above current price
+    const candidateZones = zones.filter((z) => z.zone_mid > currentPrice);
+
     for (const zone of candidateZones) {
       const entry = zone.zone_mid;
       const swingHigh = nearestAbove(liquidity.highs, entry);
-      
       if (!swingHigh) continue;
-      
+
       const stop = swingHigh + slBuffer;
       const risk = stop - entry;
-      
       if (risk <= 0 || risk > riskCap) continue;
-      
+
       const tp1 = nearestBelow(liquidity.lows, entry);
       if (!tp1) continue;
-      
+
       const reward = entry - tp1;
       const rr = reward / risk;
-      
       if (rr < minRR) continue;
-      
+
       trades.push({
         model: "A",
         direction: "Short",
@@ -98,11 +93,11 @@ export function generateModelATrades(
         reward_price: reward,
         rr,
         status: "VALID",
-        stopType: "Swing"
+        stopType: "Swing",
       });
     }
   }
-  
+
   return trades;
 }
 
@@ -126,31 +121,28 @@ export function generateModelBTrades(
   if (spreadCap != null && currentSpread != null && currentSpread > spreadCap) {
     return trades;
   }
-  
+
   if (!prevBar) return trades;
-  
+
   const pdl = prevBar.low;
   const pdh = prevBar.high;
-  
+
   if (trend === "Bull") {
-    // Long trades only - zones below current price
-    const candidateZones = zones.filter(z => z.zone_mid < currentPrice);
-    
+    const candidateZones = zones.filter((z) => z.zone_mid < currentPrice);
+
     for (const zone of candidateZones) {
       const entry = zone.zone_mid;
       const stop = pdl - slBuffer;
       const risk = entry - stop;
-      
       if (risk <= 0 || risk > riskCap) continue;
-      
+
       const tp1 = nearestAbove(liquidity.highs, entry);
       if (!tp1) continue;
-      
+
       const reward = tp1 - entry;
       const rr = reward / risk;
-      
       if (rr < minRR) continue;
-      
+
       trades.push({
         model: "B",
         direction: "Long",
@@ -161,28 +153,25 @@ export function generateModelBTrades(
         reward_price: reward,
         rr,
         status: "VALID",
-        stopType: "PD"
+        stopType: "PD",
       });
     }
   } else if (trend === "Bear") {
-    // Short trades only - zones above current price
-    const candidateZones = zones.filter(z => z.zone_mid > currentPrice);
-    
+    const candidateZones = zones.filter((z) => z.zone_mid > currentPrice);
+
     for (const zone of candidateZones) {
       const entry = zone.zone_mid;
       const stop = pdh + slBuffer;
       const risk = stop - entry;
-      
       if (risk <= 0 || risk > riskCap) continue;
-      
+
       const tp1 = nearestBelow(liquidity.lows, entry);
       if (!tp1) continue;
-      
+
       const reward = entry - tp1;
       const rr = reward / risk;
-      
       if (rr < minRR) continue;
-      
+
       trades.push({
         model: "B",
         direction: "Short",
@@ -193,14 +182,13 @@ export function generateModelBTrades(
         reward_price: reward,
         rr,
         status: "VALID",
-        stopType: "PD"
+        stopType: "PD",
       });
     }
   }
 
   return trades;
 }
-
 
 export function generateModelCTrades(
   trend: Trend,
@@ -224,123 +212,114 @@ export function generateModelCTrades(
 
   if (!prevBar || !currentBar) return trades;
 
-  // Trend-continuation pullback: look for current bar to retest prior-day key levels
-  // (prior high/close/low). C1 and C2 share the same entry logic but differ by
-  // stop placement (swing-based vs. prior-day extreme).
   if (trend === "Bull") {
     const keyLevels = [prevBar.high, prevBar.close, prevBar.low];
-    const touchedLevels = keyLevels.filter(level => currentBar.low <= level);
-
+    const touchedLevels = keyLevels.filter((level) => currentBar.low <= level);
     if (touchedLevels.length === 0) return trades;
 
-    // Take the highest retested level to keep risk contained on the continuation setup
     const entry = touchedLevels.sort((a, b) => b - a)[0];
     const tp1 = nearestAbove(liquidity.highs, entry);
+    if (!tp1) return trades;
 
-    if (tp1) {
-      // Method C1: swing-based stop below the nearest swing low
-      const swingLow = nearestBelow(liquidity.lows, entry);
-      if (swingLow) {
-        const stop = swingLow - slBuffer;
-        const risk = entry - stop;
-        if (risk > 0 && risk <= riskCap) {
-          const reward = tp1 - entry;
-          const rr = reward / risk;
-          if (rr >= minRR) {
-            trades.push({
-              model: "C1",
-              direction: "Long",
-              entry,
-              stop,
-              tp1,
-              risk_price: risk,
-              reward_price: reward,
-              rr,
-              status: "VALID",
-              stopType: "Swing",
-            });
-          }
-        }
-      }
-
-      // Method C2: prior-day stop below the previous day's low
-      const pdStop = prevBar.low - slBuffer;
-      const pdRisk = entry - pdStop;
-      if (pdRisk > 0 && pdRisk <= riskCap) {
-        const pdReward = tp1 - entry;
-        const pdRr = pdReward / pdRisk;
-        if (pdRr >= minRR) {
+    // C1: swing-based stop
+    const swingLow = nearestBelow(liquidity.lows, entry);
+    if (swingLow) {
+      const stop = swingLow - slBuffer;
+      const risk = entry - stop;
+      if (risk > 0 && risk <= riskCap) {
+        const reward = tp1 - entry;
+        const rr = reward / risk;
+        if (rr >= minRR) {
           trades.push({
-            model: "C2",
+            model: "C1",
             direction: "Long",
             entry,
-            stop: pdStop,
+            stop,
             tp1,
-            risk_price: pdRisk,
-            reward_price: pdReward,
-            rr: pdRr,
+            risk_price: risk,
+            reward_price: reward,
+            rr,
             status: "VALID",
-            stopType: "PD",
+            stopType: "Swing",
           });
         }
       }
     }
+
+    // C2: PD low stop
+    const pdStop = prevBar.low - slBuffer;
+    const pdRisk = entry - pdStop;
+    if (pdRisk > 0 && pdRisk <= riskCap) {
+      const pdReward = tp1 - entry;
+      const pdRr = pdReward / pdRisk;
+      if (pdRr >= minRR) {
+        trades.push({
+          model: "C2",
+          direction: "Long",
+          entry,
+          stop: pdStop,
+          tp1,
+          risk_price: pdRisk,
+          reward_price: pdReward,
+          rr: pdRr,
+          status: "VALID",
+          stopType: "PD",
+        });
+      }
+    }
   } else if (trend === "Bear") {
     const keyLevels = [prevBar.low, prevBar.close, prevBar.high];
-    const touchedLevels = keyLevels.filter(level => currentBar.high >= level);
-
+    const touchedLevels = keyLevels.filter((level) => currentBar.high >= level);
     if (touchedLevels.length === 0) return trades;
 
-    // Take the highest retested level for short entries (best price on a pullback)
     const entry = touchedLevels.sort((a, b) => b - a)[0];
     const tp1 = nearestBelow(liquidity.lows, entry);
+    if (!tp1) return trades;
 
-    if (tp1) {
-      // Method C1: swing-based stop above the nearest swing high
-      const swingHigh = nearestAbove(liquidity.highs, entry);
-      if (swingHigh) {
-        const stop = swingHigh + slBuffer;
-        const risk = stop - entry;
-        if (risk > 0 && risk <= riskCap) {
-          const reward = entry - tp1;
-          const rr = reward / risk;
-          if (rr >= minRR) {
-            trades.push({
-              model: "C1",
-              direction: "Short",
-              entry,
-              stop,
-              tp1,
-              risk_price: risk,
-              reward_price: reward,
-              rr,
-              status: "VALID",
-              stopType: "Swing",
-            });
-          }
-        }
-      }
-
-      // Method C2: prior-day stop above the previous day's high
-      const pdStop = prevBar.high + slBuffer;
-      const pdRisk = pdStop - entry;
-      if (pdRisk > 0 && pdRisk <= riskCap) {
-        const pdReward = entry - tp1;
-        const pdRr = pdReward / pdRisk;
-        if (pdRr >= minRR) {
+    // C1: swing-based stop
+    const swingHigh = nearestAbove(liquidity.highs, entry);
+    if (swingHigh) {
+      const stop = swingHigh + slBuffer;
+      const risk = stop - entry;
+      if (risk > 0 && risk <= riskCap) {
+        const reward = entry - tp1;
+        const rr = reward / risk;
+        if (rr >= minRR) {
           trades.push({
-            model: "C2",
+            model: "C1",
             direction: "Short",
             entry,
-            stop: pdStop,
+            stop,
             tp1,
-            risk_price: pdRisk,
-            reward_price: pdReward,
-            rr: pdRr,
+            risk_price: risk,
+            reward_price: reward,
+            rr,
             status: "VALID",
-            stopType: "PD",
+            stopType: "Swing",
           });
         }
+      }
+    }
+
+    // C2: PD high stop
+    const pdStop = prevBar.high + slBuffer;
+    const pdRisk = pdStop - entry;
+    if (pdRisk > 0 && pdRisk <= riskCap) {
+      const pdReward = entry - tp1;
+      const pdRr = pdReward / pdRisk;
+      if (pdRr >= minRR) {
+        trades.push({
+          model: "C2",
+          direction: "Short",
+          entry,
+          stop: pdStop,
+          tp1,
+          risk_price: pdRisk,
+          reward_price: pdReward,
+          rr: pdRr,
+          status: "VALID",
+          stopType: "PD",
+        });
       }
     }
   }

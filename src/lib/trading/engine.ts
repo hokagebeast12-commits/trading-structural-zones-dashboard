@@ -6,6 +6,7 @@ import {
   generateModelBTrades,
   generateModelCTrades,
 } from "./models";
+import { computePullbackStats } from "./pullback";
 import {
   SYMBOLS,
   SymbolCode,
@@ -43,6 +44,8 @@ export async function scanSymbol(
     lookbackDays,
     atrWindow,
   });
+
+  const pullback = computePullbackStats(bars, trend);
 
   // Find structural zones
   const zones = findStructuralZones(bars, symbol, lookbackDays);
@@ -87,6 +90,7 @@ export async function scanSymbol(
     trades,
     // bars.length >= neededBars is guaranteed above, so this is safe
     lastClose: bars[bars.length - 1].close,
+    pullback,
   };
 }
 

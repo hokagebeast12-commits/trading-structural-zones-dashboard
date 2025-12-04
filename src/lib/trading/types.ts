@@ -125,6 +125,17 @@ export interface TradeCandidate {
   placement?: PlacementKind;
 }
 
+export interface CandidateCondition {
+  id: string;
+  label: string;
+  passed: boolean;
+}
+
+export interface CandidateDiagnostics {
+  summary: string;
+  conditions: CandidateCondition[];
+}
+
 // Live price vs nearest zone snapshot for UI / decision support
 export interface NearestZoneInfo {
   /** Live spot price at time of scan */
@@ -179,6 +190,9 @@ export interface SymbolScanResult {
     medianPct: number | null;
     dominantBucket?: string | null;
   };
+
+  /** Checklist of filters explaining why a symbol is or isn't a candidate */
+  candidateDiagnostics?: CandidateDiagnostics;
 }
 
 export interface SymbolScanError {

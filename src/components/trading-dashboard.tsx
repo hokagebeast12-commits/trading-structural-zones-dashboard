@@ -757,6 +757,7 @@ export default function TradingDashboard() {
                           timeframeLabel: "Daily",
                         }}
                         priceFormatter={priceFormatter}
+                        candidateDiagnostics={symbolResult.candidateDiagnostics}
                       >
                         {tradesSection}
                       </SymbolCard>

@@ -1,7 +1,11 @@
 import { getDailyOhlc } from "./data-provider";
 import { classifyTrend } from "./trend-analysis";
 import { findStructuralZones, createLiquidityMap } from "./zones";
-import { generateModelATrades, generateModelBTrades } from "./models";
+import {
+  generateModelATrades,
+  generateModelBTrades,
+  generateModelCTrades,
+} from "./models";
 import {
   SYMBOLS,
   SymbolCode,
@@ -20,19 +24,12 @@ export async function scanSymbol(
     1,
     options?.params?.structureLookback ?? CONFIG.lookback_days,
   );
-  const trendLookback = Math.max(
-    1,
-    options?.params?.trendLookback ?? CONFIG.trend_lookback,
-  );
   const atrWindow = Math.max(2, options?.params?.atrWindow ?? 20);
   const minRr = options?.filters?.minRr ?? CONFIG.min_rr;
   const spreadCap = options?.filters?.spreadCap;
 
   // Get enough data for all calculations
-  const neededBars = Math.max(
-    lookbackDays + trendLookback + 2,
-    atrWindow + 1,
-  );
+  const neededBars = Math.max(lookbackDays, atrWindow + 1, 2);
   const bars = await getDailyOhlc(symbol, neededBars);
 
   if (bars.length < neededBars) {
@@ -44,7 +41,6 @@ export async function scanSymbol(
   // Analyze trend
   const { trend, location, atr20 } = classifyTrend(bars, {
     lookbackDays,
-    trendLookback,
     atrWindow,
   });
 
@@ -72,7 +68,14 @@ export async function scanSymbol(
     symbol,
     tradeOptions,
   );
-  const trades = [...modelATrades, ...modelBTrades];
+  const modelCTrades = generateModelCTrades(
+    trend,
+    liquidity,
+    bars,
+    symbol,
+    tradeOptions,
+  );
+  const trades = [...modelATrades, ...modelBTrades, ...modelCTrades];
 
   return {
     kind: "ok",

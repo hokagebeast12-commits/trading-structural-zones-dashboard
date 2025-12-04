@@ -16,10 +16,19 @@ import {
   CardTitle,
   CardContent,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { SymbolCard } from "@/components/trading/symbol-card";
+import type {
+  CandidateStatus,
+  LocationBucket,
+  TrendDirection,
+  LivePriceSource,
+  ZoneProximityLabel,
+} from "@/types/trading";
 
 const DECIMALS: Record<string, number> = {
   XAUUSD: 2,
@@ -37,6 +46,56 @@ function formatPrice(
   if (price == null || Number.isNaN(price)) return "-";
   const d = DECIMALS[String(symbol)] ?? 5;
   return price.toFixed(d);
+}
+
+function mapTrendDirection(trend: SymbolScanResult["trend"]): TrendDirection {
+  if (trend === "Bull") return "bull";
+  if (trend === "Bear") return "bear";
+  return "range";
+}
+
+function mapLocationBucket(
+  location: SymbolScanResult["location"],
+): LocationBucket {
+  if (location === "Premium") return "premium";
+  if (location === "Discount") return "discount";
+  return "mid";
+}
+
+function mapLivePriceSource(
+  source: SymbolScanResult["livePrice"] extends infer LP
+    ? LP extends { source?: infer S }
+      ? S
+      : undefined
+    : undefined,
+): LivePriceSource {
+  if (source === "manual") return "manual";
+  if (source === "fallback") return "fallback";
+  return "live";
+}
+
+function mapZoneLabel(
+  status: SymbolScanResult["nearestZone"] extends infer NZ
+    ? NZ extends { status?: infer S }
+      ? S
+      : undefined
+    : undefined,
+  distancePct?: number,
+): ZoneProximityLabel {
+  if (status === "AT_ZONE" || status === "NEAR") return "NEAR";
+  if (status === "FAR") return "FAR";
+
+  if (distancePct == null || Number.isNaN(distancePct)) return "FAR";
+  if (distancePct <= 1) return "NEAR";
+  if (distancePct <= 2.5) return "MID";
+  return "FAR";
+}
+
+function mapCandidateStatus(trades: TradeCandidate[]): CandidateStatus {
+  if (!trades.length) return "none";
+  const firstValid = trades.find((trade) => trade.status === "VALID");
+  if (firstValid) return firstValid.direction === "Long" ? "long" : "short";
+  return "watch";
 }
 
 type ViewKey = "dashboard" | "signals" | "settings";
@@ -551,304 +610,155 @@ export default function TradingDashboard() {
                     const pullback = symbolResult.pullback;
                     const pullbackHistory = symbolResult.pullbackHistory;
 
-                    const pullbackPct =
-                      pullback && Number.isFinite(pullback.depth)
-                        ? (pullback.depth * 100).toFixed(1)
-                        : null;
-
-                    const meanPullbackPct =
-                      pullbackHistory?.meanDepth != null
-                        ? (pullbackHistory.meanDepth * 100).toFixed(1)
-                        : null;
-                    const medianPullbackPct =
-                      pullbackHistory?.medianDepth != null
-                        ? (pullbackHistory.medianDepth * 100).toFixed(1)
-                        : null;
-
-                    const spotValue =
-                      nearestZone?.spot ?? livePrice?.spot ?? undefined;
-                    const spotDisplay =
-                      typeof spotValue === "number" && Number.isFinite(spotValue)
-                        ? formatPrice(symbol, spotValue)
-                        : "-";
-                    const source = livePrice?.source;
-                    const isManualSource = source === "manual";
-                    const manualBannerLabel = isManualSource
-                      ? "Manual Close"
-                      : null;
-                    const status = nearestZone?.status;
-                    const distanceDisplay =
-                      nearestZone &&
-                      typeof nearestZone.distance === "number" &&
-                      Number.isFinite(nearestZone.distance)
-                        ? formatPrice(symbol, nearestZone.distance)
-                        : null;
-                    const distancePctDisplay =
-                      nearestZone &&
-                      typeof nearestZone.distancePct === "number" &&
+                    const priceFormatter = (value: number) =>
+                      formatPrice(symbol, value);
+                    const livePriceValue =
+                      (livePrice?.spot != null && Number.isFinite(livePrice.spot)
+                        ? livePrice.spot
+                        : null) ?? symbolResult.lastClose ?? 0;
+                    const liveSource = mapLivePriceSource(livePrice?.source);
+                    const candidateStatus = mapCandidateStatus(trades);
+                    const zoneDistancePoints =
+                      nearestZone?.distance != null && Number.isFinite(nearestZone.distance)
+                        ? nearestZone.distance
+                        : 0;
+                    const zoneDistancePct =
+                      nearestZone?.distancePct != null &&
                       Number.isFinite(nearestZone.distancePct)
-                        ? `${nearestZone.distancePct.toFixed(2)}%`
-                        : null;
-
+                        ? nearestZone.distancePct
+                        : 0;
+                    const zoneLabel = mapZoneLabel(nearestZone?.status, zoneDistancePct);
                     const hasPendingLimit = trades.some(
                       (t) =>
                         t.model === "D" &&
                         (t.placement ?? "MARKET") === "PENDING_LIMIT",
                     );
 
-                    const statusChip = status
-                      ? {
-                          AT_ZONE:
-                            "bg-emerald-500/15 text-emerald-200 border-emerald-500/40",
-                          NEAR: "bg-amber-500/15 text-amber-200 border-amber-500/40",
-                          FAR: "bg-slate-700/50 text-slate-200 border-slate-600/60",
-                        }[status]
-                      : "bg-slate-800/60 text-slate-300 border-slate-700/80";
+                    const pullbackDepthPct =
+                      pullback?.depth != null && Number.isFinite(pullback.depth)
+                        ? pullback.depth * 100
+                        : 0;
+                    const meanDepth =
+                      symbolResult.typicalPullback?.meanPct ??
+                      pullbackHistory?.meanDepth ??
+                      0;
+                    const medianDepth =
+                      symbolResult.typicalPullback?.medianPct ??
+                      pullbackHistory?.medianDepth ??
+                      0;
+                    const sampleCount =
+                      symbolResult.typicalPullback?.samples ?? pullbackHistory?.sampleSize ?? 0;
+                    const lookbackLabel = (() => {
+                      const lookback =
+                        symbolResult.typicalPullback?.lookbackDays ?? pullbackHistory?.window ?? 0;
+                      return lookback ? `Last ${lookback}d` : "No lookback";
+                    })();
 
-                    const sourceChip =
-                      source === "manual"
-                        ? "bg-sky-500/20 text-sky-100 border-sky-500/40"
-                        : source === "fallback"
-                          ? "bg-amber-500/15 text-amber-200 border-amber-500/40"
-                          : source === "live"
-                            ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/40"
-                            : "bg-slate-800/60 text-slate-300 border-slate-700/80";
-
-                    const trendColor =
-                      trend === "Bull"
-                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                        : trend === "Bear"
-                        ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
-                        : "bg-slate-700/40 text-slate-200 border-slate-600/60";
-
-                    const locColor =
-                      location === "Discount"
-                        ? "bg-emerald-500/10 text-emerald-300"
-                        : location === "Premium"
-                        ? "bg-amber-500/10 text-amber-300"
-                        : "bg-slate-700/40 text-slate-200";
+                    const tradesSection = (
+                      <section className="rounded-xl border border-slate-800/80 bg-slate-900/60 px-3 py-2">
+                        <div className="flex items-center justify-between gap-2 pb-2">
+                          <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                            Trade candidates
+                          </p>
+                          {hasPendingLimit && (
+                            <Badge
+                              variant="outline"
+                              className="border-indigo-500/60 text-[10px] font-semibold uppercase tracking-wide text-indigo-200"
+                            >
+                              Pending setup
+                            </Badge>
+                          )}
+                        </div>
+                        {trades.length === 0 ? (
+                          <div className="py-3 text-xs text-slate-400">
+                            No trade candidates for this symbol.
+                          </div>
+                        ) : (
+                          <div
+                            className={`overflow-x-auto ${
+                              loading ? "pointer-events-none opacity-50" : ""
+                            }`}
+                          >
+                            <table className="w-full text-[13px]">
+                              <thead>
+                                <tr className="bg-slate-800 text-slate-50">
+                                  <th className="px-2 py-2 text-left font-semibold">Model</th>
+                                  <th className="px-2 py-2 text-left font-semibold">Placement</th>
+                                  <th className="px-2 py-2 text-left font-semibold">Dir</th>
+                                  <th className="px-2 py-2 text-right font-semibold">Entry</th>
+                                  <th className="px-2 py-2 text-right font-semibold">Stop</th>
+                                  <th className="px-2 py-2 text-right font-semibold">TP1</th>
+                                  <th className="px-2 py-2 text-right font-semibold">R:R</th>
+                                  <th className="px-2 py-2 text-left font-semibold">Stop Type</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {trades.map((t: TradeCandidate, idx: number) => (
+                                  <tr
+                                    key={idx}
+                                    className="border-b border-slate-700 bg-slate-900 text-slate-50 hover:bg-slate-800"
+                                  >
+                                    <td className="px-2 py-1.5 font-semibold">{t.model}</td>
+                                    <td className="px-2 py-1.5 font-semibold">
+                                      <span className="inline-flex items-center rounded-full border border-slate-700 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide">
+                                        {(t.placement ?? "MARKET").replace("_", " ")}
+                                      </span>
+                                    </td>
+                                    <td className="px-2 py-1.5 font-semibold">{t.direction}</td>
+                                    <td className="px-2 py-1.5 text-right font-semibold">
+                                      {priceFormatter(t.entry)}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right font-semibold">
+                                      {priceFormatter(t.stop)}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right font-semibold">
+                                      {priceFormatter(t.tp1)}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right font-semibold">
+                                      {t.rr?.toFixed(2) ?? "-"}
+                                    </td>
+                                    <td className="px-2 py-1.5 font-semibold">{t.stopType ?? "-"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </section>
+                    );
 
                     return (
-                      <Card
+                      <SymbolCard
                         key={symbol}
-                        className="border border-slate-800 bg-slate-900/40 shadow-[0_0_0_1px_rgba(15,23,42,0.7)]"
+                        symbol={symbol}
+                        atr20={symbolResult.atr20 ?? 0}
+                        trend={mapTrendDirection(trend)}
+                        location={mapLocationBucket(location)}
+                        candidateStatus={candidateStatus}
+                        livePrice={livePriceValue}
+                        livePriceSource={liveSource}
+                        closeMode={manualCloses[symbol]?.enabled ? "manual" : "auto"}
+                        nearestZone={{
+                          label: zoneLabel,
+                          distancePoints: zoneDistancePoints,
+                          distancePercent: Math.max(zoneDistancePct, 0),
+                        }}
+                        pullback={{
+                          currentDepthPct: pullbackDepthPct,
+                          fibBucketLabel: pullback?.fibBucket ?? "N/A",
+                          meanDepthPct: (meanDepth ?? 0) * 100,
+                          medianDepthPct: (medianDepth ?? 0) * 100,
+                          sampleCount,
+                          lookbackLabel,
+                        }}
+                        fallbackClose={{
+                          price: symbolResult.lastClose ?? 0,
+                          timeframeLabel: "Daily",
+                        }}
+                        priceFormatter={priceFormatter}
                       >
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                          <div>
-                            <CardTitle className="text-sm font-semibold text-sky-100">
-                              {symbol}
-                            </CardTitle>
-                            <p className="text-xs text-slate-400">
-                              ATR(20):{" "}
-                              {symbolResult.atr20?.toFixed(2) ?? "-"}
-                            </p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <span
-                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${trendColor}`}
-                            >
-                              {trend || "Neutral"}
-                            </span>
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${locColor}`}
-                            >
-                              {location || "Mid"}
-                            </span>
-                            {hasPendingLimit && (
-                              <span className="inline-flex items-center rounded-full border border-indigo-500/50 bg-indigo-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-100">
-                                Pending setup
-                              </span>
-                            )}
-                          </div>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="mb-4 grid grid-cols-1 gap-2 text-xs sm:grid-cols-5">
-                            <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
-                              <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                                Live Price
-                              </p>
-                              <div className="flex items-center justify-between pt-1">
-                                <span className="text-sm font-semibold text-slate-50">
-                                  {spotDisplay}
-                                </span>
-                                <span
-                                  className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${sourceChip}`}
-                                >
-                                  {source ?? "unknown"}
-                                </span>
-                              </div>
-                              {manualBannerLabel && (
-                                <div className="mt-2 flex justify-between text-[11px] text-slate-300">
-                                  <span className="rounded-full border border-sky-500/50 bg-sky-500/15 px-2 py-0.5 font-semibold uppercase tracking-wide text-sky-100">
-                                    {manualBannerLabel}
-                                  </span>
-                                  <span className="text-slate-400">
-                                    Using manual close for spot.
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
-                              <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                                Nearest Zone
-                              </p>
-                              <div className="flex items-center justify-between pt-1">
-                                <span className="text-sm font-semibold text-slate-50">
-                                  {status ?? "-"}
-                                </span>
-                                <span
-                                  className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusChip}`}
-                                >
-                                  {status ?? "N/A"}
-                                </span>
-                              </div>
-                              <div className="mt-2 text-[11px] text-slate-300">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-slate-400">Distance</span>
-                                  <span className="font-semibold text-slate-100">
-                                    {distanceDisplay ?? "-"}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-slate-400">Distance %</span>
-                                  <span className="font-semibold text-slate-100">
-                                    {distancePctDisplay ?? "-"}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
-                              <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                                Pullback depth
-                              </p>
-                              <div className="flex items-center justify-between pt-1">
-                                <span className="text-sm font-semibold text-slate-50">
-                                  {pullbackPct != null ? `${pullbackPct}%` : "-"}
-                                </span>
-                                <span className="ml-2 inline-flex items-center rounded-full border border-slate-700 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-300">
-                                  {pullback?.fibBucket ?? "N/A"}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
-                              <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                                Typical pullback
-                              </p>
-                              <div className="flex items-center justify-between pt-1 text-sm font-semibold text-slate-50">
-                                <span>Mean</span>
-                                <span>
-                                  {meanPullbackPct != null
-                                    ? `${meanPullbackPct}%`
-                                    : "-"}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between pt-1 text-[13px] text-slate-200">
-                                <span>Median</span>
-                                <span>
-                                  {medianPullbackPct != null
-                                    ? `${medianPullbackPct}%`
-                                    : "-"}
-                                </span>
-                              </div>
-                              <div className="pt-1 text-[11px] text-slate-400">
-                                <span>
-                                  Last {pullbackHistory?.window ?? 0}d · samples: {pullbackHistory?.sampleSize ?? 0}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
-                              <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                                Fallback Close
-                              </p>
-                              <div className="flex items-center justify-between pt-1">
-                                <span className="text-sm font-semibold text-slate-50">
-                                  {formatPrice(symbol, symbolResult.lastClose)}
-                                </span>
-                                <span className="ml-2 inline-flex items-center rounded-full border border-slate-700 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-300">
-                                  Daily
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          {trades.length === 0 ? (
-                            <div className="py-4 text-xs text-slate-400">
-                              No trade candidates for this symbol.
-                            </div>
-                          ) : (
-                            <div
-                              className={`overflow-x-auto ${
-                                loading ? "pointer-events-none opacity-50" : ""
-                              }`}
-                            >
-                              <table className="w-full text-[13px]">
-                                <thead>
-                                  <tr className="bg-slate-800 text-slate-50">
-                                    <th className="px-2 py-2 text-left font-semibold">
-                                      Model
-                                    </th>
-                                    <th className="px-2 py-2 text-left font-semibold">
-                                      Placement
-                                    </th>
-                                    <th className="px-2 py-2 text-left font-semibold">
-                                      Dir
-                                    </th>
-                                    <th className="px-2 py-2 text-right font-semibold">
-                                      Entry
-                                    </th>
-                                    <th className="px-2 py-2 text-right font-semibold">
-                                      Stop
-                                    </th>
-                                    <th className="px-2 py-2 text-right font-semibold">
-                                      TP1
-                                    </th>
-                                    <th className="px-2 py-2 text-right font-semibold">
-                                      R:R
-                                    </th>
-                                    <th className="px-2 py-2 text-left font-semibold">
-                                      Stop Type
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {trades.map((t: TradeCandidate, idx: number) => (
-                                    <tr
-                                      key={idx}
-                                      className="border-b border-slate-700 bg-slate-900 text-slate-50 hover:bg-slate-800"
-                                    >
-                                      <td className="px-2 py-1.5 font-semibold">
-                                        {t.model}
-                                      </td>
-                                      <td className="px-2 py-1.5 font-semibold">
-                                        <span className="inline-flex items-center rounded-full border border-slate-700 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide">
-                                          {(t.placement ?? "MARKET").replace("_", " ")}
-                                        </span>
-                                      </td>
-                                      <td className="px-2 py-1.5 font-semibold">
-                                        {t.direction}
-                                      </td>
-                                      <td className="px-2 py-1.5 text-right font-semibold">
-                                        {formatPrice(symbol, t.entry)}
-                                      </td>
-                                      <td className="px-2 py-1.5 text-right font-semibold">
-                                        {formatPrice(symbol, t.stop)}
-                                      </td>
-                                      <td className="px-2 py-1.5 text-right font-semibold">
-                                        {formatPrice(symbol, t.tp1)}
-                                      </td>
-                                      <td className="px-2 py-1.5 text-right font-semibold">
-                                        {t.rr?.toFixed(2) ?? "-"}
-                                      </td>
-                                      <td className="px-2 py-1.5 font-semibold">
-                                        {t.stopType ?? "-"}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
+                        {tradesSection}
+                      </SymbolCard>
                     );
                   })}
                 </section>

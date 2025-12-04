@@ -41,11 +41,6 @@ export function CandidateStatusBlock({
             )}
           >
             {STATUS_LABEL[status]}
-            {diagnostics && isNone && diagnostics.summary && (
-              <span className="ml-1 text-xs text-slate-400">
-                · {diagnostics.summary}
-              </span>
-            )}
           </p>
         </div>
 

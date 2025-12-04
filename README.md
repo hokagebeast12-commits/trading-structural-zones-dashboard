@@ -78,6 +78,18 @@ Open [http://localhost:3000](http://localhost:3000) to see your application runn
 - If those variables are missing, the scanner now falls back to the most recent daily close so the UI still shows proximity and trade candidates. The response carries `livePrice.source: "fallback"` and an `ENV_MISSING` error to make the data provenance clear.
 - GPT models are not suitable price feeds; use a financial market API (e.g., your broker or a quotes vendor) for production data.
 
+## Trend continuation playbook
+
+Use this quick-reference checklist to execute a trend continuation strategy the day after a confirmed trend day:
+
+1. **Expect a controlled pullback** – After a strong move (e.g., a bull trend day), anticipate a correction or retest lower to set up the next leg of the trend rather than chasing price higher.
+2. **Frame the opportunity** – The pullback creates the "buy low" entry (for bullish continuations), either by shaking out late buyers or letting larger players scale in at better prices.
+3. **Anchor to objective levels** – Focus entries around predefined areas that often act as support/resistance:
+   - **Historical price markers**: prior day high/low/close, prior support/resistance (especially resistance turned support), and notable swing highs/lows.
+   - **Dynamic trend guides**: pullbacks into moving averages that match trend strength—20-period for very strong trends, 50-period for healthy trends (common swing entry), and 200-period when the trend is weak.
+   - **Geometric retracements**: Fibonacci zones at 38.2%, 50%, 61.8%, and deeper 71–78.6% levels to bracket expected retrace depth.
+4. **Favor confluence** – When multiple signals (e.g., a Fibonacci level overlapping a moving average and a prior swing high) align, treat it as a higher-probability continuation zone.
+
 ## 🤖 Powered by Z.ai
 
 This scaffold is optimized for use with [Z.ai](https://chat.z.ai) - your AI assistant for:

@@ -6,7 +6,10 @@ import {
   generateModelBTrades,
   generateModelCTrades,
 } from "./models";
-import { computePullbackStats } from "./pullback";
+import {
+  computePullbackHistoryStats,
+  computePullbackStats,
+} from "./pullback";
 import {
   SYMBOLS,
   SymbolCode,
@@ -25,12 +28,25 @@ export async function scanSymbol(
     1,
     options?.params?.structureLookback ?? CONFIG.lookback_days,
   );
+  const trendLookback = Math.max(
+    1,
+    options?.params?.trendLookback ?? CONFIG.trend_lookback,
+  );
   const atrWindow = Math.max(2, options?.params?.atrWindow ?? 20);
+  const pullbackWindow = Math.max(
+    2,
+    options?.params?.pullbackWindow ?? CONFIG.pullback_history_window,
+  );
   const minRr = options?.filters?.minRr ?? CONFIG.min_rr;
   const spreadCap = options?.filters?.spreadCap;
 
   // Get enough data for all calculations
-  const neededBars = Math.max(lookbackDays, atrWindow + 1, 2);
+  const neededBars = Math.max(
+    lookbackDays,
+    atrWindow + 1,
+    pullbackWindow + 1,
+    trendLookback + 1,
+  );
   const bars = await getDailyOhlc(symbol, neededBars);
 
   if (bars.length < neededBars) {
@@ -43,9 +59,15 @@ export async function scanSymbol(
   const { trend, location, atr20 } = classifyTrend(bars, {
     lookbackDays,
     atrWindow,
+    trendLookback,
   });
 
   const pullback = computePullbackStats(bars, trend);
+  const pullbackHistory = computePullbackHistoryStats(bars, {
+    window: pullbackWindow,
+    trendLookback,
+    mode: "matchingTrend",
+  });
 
   // Find structural zones
   const zones = findStructuralZones(bars, symbol, lookbackDays);
@@ -91,6 +113,7 @@ export async function scanSymbol(
     // bars.length >= neededBars is guaranteed above, so this is safe
     lastClose: bars[bars.length - 1].close,
     pullback,
+    pullbackHistory,
   };
 }
 

@@ -92,6 +92,10 @@ const scanPayloadSchema = z
           .number({ invalid_type_error: "trendLookback must be a number" })
           .finite()
           .optional(),
+        pullbackWindow: z
+          .number({ invalid_type_error: "pullbackWindow must be a number" })
+          .finite()
+          .optional(),
       })
       .strict()
       .optional(),

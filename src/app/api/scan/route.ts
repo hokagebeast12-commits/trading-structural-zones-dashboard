@@ -38,6 +38,16 @@ const manualCloseSchema = z
     }
   });
 
+const manualClosesShape = SUPPORTED_SYMBOLS.reduce(
+  (acc, symbol) => {
+    acc[symbol] = manualCloseSchema.optional();
+    return acc;
+  },
+  {} as Record<SymbolCode, z.ZodTypeAny>,
+);
+
+const manualClosesSchema = z.object(manualClosesShape).partial();
+
 const scanPayloadSchema = z
   .object({
     date: z
@@ -85,9 +95,7 @@ const scanPayloadSchema = z
       })
       .strict()
       .optional(),
-    manualCloses: z
-      .record(z.enum(SUPPORTED_SYMBOLS), manualCloseSchema)
-      .optional(),
+    manualCloses: manualClosesSchema.optional(),
   })
   .strict();
 

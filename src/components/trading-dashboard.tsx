@@ -22,6 +22,7 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { SymbolCard } from "@/components/trading/symbol-card";
+import { cn } from "@/lib/utils";
 import type {
   CandidateStatus,
   LocationBucket,
@@ -1246,10 +1247,17 @@ export default function TradingDashboard() {
                       {symbolsList.map((symbol) => {
                         const state = manualCloses[symbol];
 
+                        const isEnabled = !!state?.enabled;
+
                         return (
                           <div
                             key={`manual-close-${symbol}`}
-                            className="rounded-lg border border-border bg-muted/40 p-3"
+                            className={cn(
+                              "rounded-lg border p-3 transition-colors",
+                              "bg-muted/40 border-border",
+                              isEnabled &&
+                                "border-sky-500/60 bg-sky-500/5 shadow-[0_0_0_1px_rgba(14,165,233,0.25)]",
+                            )}
                           >
                             <div className="flex items-center justify-between gap-3">
                               <div className="space-y-0.5">
@@ -1278,7 +1286,11 @@ export default function TradingDashboard() {
                                 inputMode="decimal"
                                 step="any"
                                 placeholder="e.g. 1.2345"
-                                className="h-9 border-border bg-background text-right"
+                                className={cn(
+                                  "h-9 text-right",
+                                  "border-border bg-background",
+                                  isEnabled && "border-sky-400/70 bg-slate-900 text-slate-50",
+                                )}
                                 disabled={!state?.enabled}
                                 value={state?.value ?? ""}
                                 onChange={(e) =>

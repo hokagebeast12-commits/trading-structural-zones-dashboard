@@ -8,6 +8,17 @@ export type ZoneProximityLabel = "NEAR" | "MID" | "FAR";
 
 export type CandidateStatus = "none" | "watch" | "long" | "short";
 
+export interface CandidateCondition {
+  id: string;
+  label: string;
+  passed: boolean;
+}
+
+export interface CandidateDiagnostics {
+  summary: string;
+  conditions: CandidateCondition[];
+}
+
 export type CloseMode = "manual" | "auto";
 
 export type LivePriceSource = "live" | "fallback" | "manual";
@@ -46,4 +57,5 @@ export interface SymbolCardProps {
   fallbackClose: FallbackCloseInfo;
   priceFormatter?: (price: number) => string;
   children?: React.ReactNode;
+  candidateDiagnostics?: CandidateDiagnostics;
 }

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PullbackDepthBlock } from "./pullback-depth-block";
+import { CandidateStatusBlock } from "./candidate-status-block";
 
 const TREND_LABEL: Record<SymbolCardProps["trend"], string> = {
   bull: "Bull",
@@ -17,6 +18,18 @@ const LOCATION_LABEL: Record<SymbolCardProps["location"], string> = {
   premium: "Premium",
   discount: "Discount",
   mid: "Mid",
+};
+
+const TREND_COLOR: Record<SymbolCardProps["trend"], string> = {
+  bull: "text-emerald-400",
+  bear: "text-rose-400",
+  range: "text-slate-200",
+};
+
+const LOCATION_COLOR: Record<SymbolCardProps["location"], string> = {
+  premium: "text-rose-400",
+  discount: "text-emerald-400",
+  mid: "text-slate-200",
 };
 
 const CANDIDATE_LABEL: Record<SymbolCardProps["candidateStatus"], string> = {
@@ -52,6 +65,7 @@ export function SymbolCard(props: SymbolCardProps) {
     nearestZone,
     pullback,
     fallbackClose,
+    candidateDiagnostics,
     priceFormatter,
     children,
   } = props;
@@ -61,6 +75,12 @@ export function SymbolCard(props: SymbolCardProps) {
   }, [priceFormatter]);
 
   const isCandidate = candidateStatus === "long" || candidateStatus === "short";
+  const candidateBadgeVariant =
+    candidateStatus === "long"
+      ? "default"
+      : candidateStatus === "short"
+        ? "destructive"
+        : "outline";
 
   return (
     <Card
@@ -76,7 +96,7 @@ export function SymbolCard(props: SymbolCardProps) {
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold tracking-tight">{symbol}</h2>
             <Badge
-              variant="outline"
+              variant={candidateBadgeVariant}
               className={cn("text-xs", STATUS_STYLES[candidateStatus])}
             >
               {CANDIDATE_LABEL[candidateStatus]}
@@ -86,8 +106,14 @@ export function SymbolCard(props: SymbolCardProps) {
           <p className="text-xs text-slate-400">
             ATR(20):{" "}
             <span className="font-medium text-slate-100">{atr20.toFixed(2)}</span>{" "}
-            · Trend: <span className="font-medium">{TREND_LABEL[trend]}</span> ·
-            Location: <span className="font-medium">{LOCATION_LABEL[location]}</span>
+            · Trend:{" "}
+            <span className={cn("font-medium", TREND_COLOR[trend])}>
+              {TREND_LABEL[trend]}
+            </span>{" "}
+            · Location:{" "}
+            <span className={cn("font-medium", LOCATION_COLOR[location])}>
+              {LOCATION_LABEL[location]}
+            </span>
           </p>
         </div>
 
@@ -158,6 +184,8 @@ export function SymbolCard(props: SymbolCardProps) {
             Used if no intraday candidate is available for this symbol.
           </p>
         </section>
+
+        <CandidateStatusBlock status={candidateStatus} diagnostics={candidateDiagnostics} />
 
         {children}
       </CardContent>

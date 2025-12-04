@@ -39,7 +39,7 @@ export interface ScanOptions {
   params?: ScanParams;
   date?: string;
   manualCloses?: Partial<
-    Record<SymbolCode, { enabled: boolean; close?: number | null }>
+    Record<SymbolCode, { enabled: boolean; close?: number }>
   >;
 }
 

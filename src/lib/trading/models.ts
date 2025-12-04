@@ -233,8 +233,8 @@ export function generateModelCTrades(
 
     if (touchedLevels.length === 0) return trades;
 
-    // Enter at the deepest retested level to prioritize the true "buy-low" pullback price
-    const entry = Math.min(...touchedLevels);
+    // Take the highest retested level to keep risk contained on the continuation setup
+    const entry = touchedLevels.sort((a, b) => b - a)[0];
     const tp1 = nearestAbove(liquidity.highs, entry);
 
     if (tp1) {
@@ -291,8 +291,8 @@ export function generateModelCTrades(
 
     if (touchedLevels.length === 0) return trades;
 
-    // Enter at the highest retested level for short entries (best sell-high pullback price)
-    const entry = Math.max(...touchedLevels);
+    // Take the highest retested level for short entries (best price on a pullback)
+    const entry = touchedLevels.sort((a, b) => b - a)[0];
     const tp1 = nearestBelow(liquidity.lows, entry);
 
     if (tp1) {

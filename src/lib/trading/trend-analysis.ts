@@ -41,22 +41,34 @@ export function classifyTrend(
     pos = (lastClose - minLow) / (maxHigh - minLow);
   }
 
-  // Determine trend based on violation of the previous day's high/low
+  // Determine trend based on a *legitimate* break of the previous day's range
   const trendBars = bars.slice(-Math.max(2, trendLookback));
   const prevBar = trendBars[trendBars.length - 2];
   const currentBar = trendBars[trendBars.length - 1];
 
   let trend: Trend = "Neutral";
   const brokeHigh = currentBar.high > prevBar.high;
-  const brokeLow = currentBar.low < prevBar.low;
+  const brokeLow  = currentBar.low  < prevBar.low;
 
-  if (brokeHigh && !brokeLow) {
+  // Close relative to previous day's range – used to filter stop hunts
+  const closedAbovePrevHigh = currentBar.close > prevBar.high;
+  const closedBelowPrevLow  = currentBar.close < prevBar.low;
+
+  if (!brokeHigh && !brokeLow) {
+    // 1) No violation of yesterday's high or low → not a trend day
+    trend = "Neutral";
+  } else if (closedAbovePrevHigh && !closedBelowPrevLow) {
+    // 2a) Legit *bullish* trend day:
+    //     broke yesterday's high and CLOSED above it (not just a wick)
     trend = "Bull";
-  } else if (brokeLow && !brokeHigh) {
+  } else if (closedBelowPrevLow && !closedAbovePrevHigh) {
+    // 2b) Legit *bearish* trend day:
+    //     broke yesterday's low and CLOSED below it
     trend = "Bear";
-  } else if (brokeHigh && brokeLow) {
-    // If both extremes were violated, use the closing position to choose a bias
-    trend = lastClose >= prevBar.close ? "Bull" : "Bear";
+  } else {
+    // 3) Price violated the level but closed back inside yesterday's range
+    //    → treat as stop hunt / fakeout, not a trend day
+    trend = "Neutral";
   }
 
   // Determine location

@@ -1,34 +1,51 @@
 "use client";
 
 import * as React from "react";
-import type { PullbackStats } from "@/types/trading";
+import type { PullbackSnapshotCard } from "@/types/trading";
 import { cn } from "@/lib/utils";
 
 interface PullbackDepthBlockProps {
-  pullback: PullbackStats;
+  pullback: PullbackSnapshotCard;
 }
 
 export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
-  const {
-    currentDepthPct,
-    fibBucketLabel,
-    meanDepthPct,
-    medianDepthPct,
-    sampleCount,
-    lookbackLabel,
-  } = pullback;
+  const depthPct =
+    pullback.depthIntoPrevPct != null &&
+    Number.isFinite(pullback.depthIntoPrevPct)
+      ? pullback.depthIntoPrevPct * 100
+      : null;
+  const meanDepthPct =
+    pullback.typicalMeanPct != null && Number.isFinite(pullback.typicalMeanPct)
+      ? pullback.typicalMeanPct * 100
+      : null;
+  const medianDepthPct =
+    pullback.typicalMedianPct != null &&
+    Number.isFinite(pullback.typicalMedianPct)
+      ? pullback.typicalMedianPct * 100
+      : null;
 
-  const clampedCurrent = clamp(currentDepthPct);
+  const clampedCurrent = clamp(depthPct);
   const clampedMean = clamp(meanDepthPct);
 
-  const deviation = currentDepthPct - meanDepthPct;
+  const deviation =
+    depthPct != null && meanDepthPct != null ? depthPct - meanDepthPct : null;
 
   const deviationLabel =
-    Math.abs(deviation) < 10
-      ? "In typical range"
-      : deviation > 0
-        ? "Deeper than typical"
-        : "Shallower than typical";
+    deviation == null
+      ? "No benchmark"
+      : Math.abs(deviation) < 10
+        ? "In typical range"
+        : deviation > 0
+          ? "Deeper than typical"
+          : "Shallower than typical";
+
+  const showDot = depthPct != null;
+  const lookbackLabel = pullback.lookbackDays
+    ? `Last ${pullback.lookbackDays}d`
+    : "No lookback";
+  const scenarioLabel = pullback.scenario
+    ? `${pullback.scenario.macroTrendPrev} macro · ${pullback.scenario.trendDayPrev} trend day (${pullback.scenario.alignmentPrev})`
+    : "No scenario context";
 
   return (
     <div className="space-y-2">
@@ -39,19 +56,21 @@ export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
             Pullback depth
           </p>
           <p className="text-sm font-medium text-slate-50">
-            {Number.isFinite(currentDepthPct) ? currentDepthPct.toFixed(1) : "-"}%
+            {depthPct != null ? depthPct.toFixed(1) : "-"}%
             <span className="ml-1 text-[11px] text-slate-400">
-              ({fibBucketLabel || "N/A"})
+              ({pullback.bucket ?? "N/A"})
             </span>
           </p>
+          <p className="text-[11px] text-slate-400">{scenarioLabel}</p>
         </div>
 
         <p
           className={cn(
             "text-[11px] font-medium",
-            Math.abs(deviation) < 10 && "text-emerald-400",
-            deviation > 10 && "text-amber-300",
-            deviation < -10 && "text-sky-300",
+            deviation == null && "text-slate-400",
+            deviation != null && Math.abs(deviation) < 10 && "text-emerald-400",
+            deviation != null && deviation > 10 && "text-amber-300",
+            deviation != null && deviation < -10 && "text-sky-300",
           )}
         >
           {deviationLabel}
@@ -62,25 +81,31 @@ export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
       <div className="space-y-1">
         <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-800">
           {/* typical range band (±10% around mean) */}
-          <div
-            className="absolute inset-y-0 bg-slate-700/80"
-            style={{
-              left: `${Math.max(clampedMean - 10, 0)}%`,
-              width: `${
-                Math.min(clampedMean + 10, 100) - Math.max(clampedMean - 10, 0)
-              }%`,
-            }}
-          />
+          {meanDepthPct != null ? (
+            <div
+              className="absolute inset-y-0 bg-slate-700/80"
+              style={{
+                left: `${Math.max(clampedMean - 10, 0)}%`,
+                width: `${
+                  Math.min(clampedMean + 10, 100) - Math.max(clampedMean - 10, 0)
+                }%`,
+              }}
+            />
+          ) : null}
           {/* current depth marker */}
-          <div
-            className="absolute top-1/2 -mt-[5px] h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-md"
-            style={{ left: `${clampedCurrent}%` }}
-          />
+          {showDot ? (
+            <div
+              className="absolute top-1/2 -mt-[5px] h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-md"
+              style={{ left: `${clampedCurrent}%` }}
+            />
+          ) : null}
           {/* mean marker */}
-          <div
-            className="absolute top-0 bottom-0 w-[2px] bg-slate-200/90"
-            style={{ left: `${clampedMean}%` }}
-          />
+          {Number.isFinite(meanDepthPct) ? (
+            <div
+              className="absolute top-0 bottom-0 w-[2px] bg-slate-200/90"
+              style={{ left: `${clampedMean}%` }}
+            />
+          ) : null}
         </div>
 
         <div className="flex justify-between text-[10px] text-slate-500">
@@ -95,24 +120,27 @@ export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
         <span>
           Typical mean:{" "}
           <span className="font-medium text-slate-100">
-            {Number.isFinite(meanDepthPct) ? meanDepthPct.toFixed(1) : "-"}%
+            {meanDepthPct != null ? meanDepthPct.toFixed(1) : "-"}%
           </span>
         </span>
         <span>
           Median:{" "}
           <span className="font-medium text-slate-100">
-            {Number.isFinite(medianDepthPct) ? medianDepthPct.toFixed(1) : "-"}%
+            {medianDepthPct != null ? medianDepthPct.toFixed(1) : "-"}%
           </span>
         </span>
         <span className="text-slate-500">
-          {lookbackLabel} · {sampleCount} samples
+          {lookbackLabel} · {pullback.sampleCount} samples
+        </span>
+        <span className="text-slate-500">
+          Depth measured as retrace into prior candle, filtered by matching trend day and macro trend.
         </span>
       </div>
     </div>
   );
 }
 
-function clamp(value: number) {
-  if (!Number.isFinite(value)) return 0;
+function clamp(value: number | null) {
+  if (value == null || !Number.isFinite(value)) return 0;
   return Math.min(Math.max(value, 0), 100);
 }

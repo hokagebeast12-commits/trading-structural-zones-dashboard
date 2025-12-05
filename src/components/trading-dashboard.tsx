@@ -631,7 +631,6 @@ export default function TradingDashboard() {
                     const livePrice = symbolResult.livePrice;
                     const nearestZone = symbolResult.nearestZone;
                     const pullback = symbolResult.pullback;
-                    const pullbackHistory = symbolResult.pullbackHistory;
 
                     const priceFormatter = (value: number) =>
                       formatPrice(symbol, value);
@@ -656,26 +655,6 @@ export default function TradingDashboard() {
                         t.model === "D" &&
                         (t.placement ?? "MARKET") === "PENDING_LIMIT",
                     );
-
-                    const pullbackDepthPct =
-                      pullback?.depth != null && Number.isFinite(pullback.depth)
-                        ? pullback.depth * 100
-                        : 0;
-                    const meanDepth =
-                      symbolResult.typicalPullback?.meanPct ??
-                      pullbackHistory?.meanDepth ??
-                      0;
-                    const medianDepth =
-                      symbolResult.typicalPullback?.medianPct ??
-                      pullbackHistory?.medianDepth ??
-                      0;
-                    const sampleCount =
-                      symbolResult.typicalPullback?.samples ?? pullbackHistory?.sampleSize ?? 0;
-                    const lookbackLabel = (() => {
-                      const lookback =
-                        symbolResult.typicalPullback?.lookbackDays ?? pullbackHistory?.window ?? 0;
-                      return lookback ? `Last ${lookback}d` : "No lookback";
-                    })();
 
                     const tradesSection = (
                       <section className="rounded-xl border border-slate-800/80 bg-slate-900/60 px-3 py-2">
@@ -770,12 +749,13 @@ export default function TradingDashboard() {
                           distancePercent: Math.max(zoneDistancePct, 0),
                         }}
                         pullback={{
-                          currentDepthPct: pullbackDepthPct,
-                          fibBucketLabel: pullback?.fibBucket ?? "N/A",
-                          meanDepthPct: (meanDepth ?? 0) * 100,
-                          medianDepthPct: (medianDepth ?? 0) * 100,
-                          sampleCount,
-                          lookbackLabel,
+                          depthIntoPrevPct: pullback?.depthIntoPrevPct ?? null,
+                          bucket: pullback?.bucket ?? null,
+                          scenario: pullback?.scenario ?? null,
+                          typicalMeanPct: pullback?.typicalMeanPct ?? null,
+                          typicalMedianPct: pullback?.typicalMedianPct ?? null,
+                          sampleCount: pullback?.sampleCount ?? 0,
+                          lookbackDays: pullback?.lookbackDays ?? 0,
                         }}
                         fallbackClose={{
                           price: symbolResult.lastClose ?? 0,

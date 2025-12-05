@@ -1,4 +1,4 @@
-import type { NearestZoneInfo, PullbackStats } from "./types";
+import type { CurrentPullbackSnapshot, NearestZoneInfo } from "./types";
 
 export interface CandidateCondition {
   id: string;
@@ -15,7 +15,7 @@ export interface CandidateRuleInputs {
   trend: "Bull" | "Bear" | "Neutral";
   location: "Discount" | "Premium" | "Mid";
   nearestZone?: NearestZoneInfo | null;
-  pullback?: PullbackStats;
+  pullback?: CurrentPullbackSnapshot;
   hasModelSignal?: boolean;
   newsBlocked?: boolean;
 }
@@ -41,7 +41,8 @@ export function buildCandidateDiagnostics(
     !!nearestZone &&
     (nearestZone.status === "AT_ZONE" || nearestZone.status === "NEAR");
   const hasPullbackDepth =
-    pullback?.depth != null && Number.isFinite(Number(pullback.depth));
+    pullback?.depthIntoPrevPct != null &&
+    Number.isFinite(Number(pullback.depthIntoPrevPct));
   const modelSignalOk = hasModelSignal !== undefined ? !!hasModelSignal : true;
   const newsClear = newsBlocked !== undefined ? !newsBlocked : true;
 

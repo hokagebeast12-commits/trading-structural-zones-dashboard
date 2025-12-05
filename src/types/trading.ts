@@ -22,13 +22,33 @@ export interface NearestZoneInfo {
   distancePercent: number;
 }
 
-export interface PullbackStats {
-  currentDepthPct: number;
-  fibBucketLabel: string;
-  meanDepthPct: number;
-  medianDepthPct: number;
+export type PullbackBucket =
+  | "0-0.382"
+  | "0.382-0.5"
+  | "0.5-0.618"
+  | "0.618-0.786"
+  | "0.786-1.0"
+  | "1.0+";
+
+export interface PullbackScenarioKey {
+  macroTrendPrev: "Bull" | "Bear" | "Neutral";
+  trendDayPrev: "Bull" | "Bear" | "Neutral";
+  alignmentPrev:
+    | "AlignedLong"
+    | "AlignedShort"
+    | "CounterLong"
+    | "CounterShort"
+    | "Neutral";
+}
+
+export interface PullbackSnapshotCard {
+  depthIntoPrevPct: number | null;
+  bucket: PullbackBucket | null;
+  scenario: PullbackScenarioKey | null;
+  typicalMeanPct: number | null;
+  typicalMedianPct: number | null;
   sampleCount: number;
-  lookbackLabel: string;
+  lookbackDays: number;
 }
 
 export interface FallbackCloseInfo {
@@ -62,7 +82,7 @@ export interface SymbolCardProps {
   livePriceSource: LivePriceSource;
   closeMode: CloseMode;
   nearestZone: NearestZoneInfo;
-  pullback: PullbackStats;
+  pullback: PullbackSnapshotCard;
   fallbackClose: FallbackCloseInfo;
   priceFormatter?: (price: number) => string;
   children?: React.ReactNode;

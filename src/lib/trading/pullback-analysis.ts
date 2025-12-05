@@ -71,18 +71,27 @@ export function classifyPullbackBucket(depth: number): PullbackBucket {
   return "1.0+";
 }
 
-function computeDepthIntoPrevious(prev: OhlcBar, curr: OhlcBar): number {
-  const prevRange = prev.high - prev.low;
-  if (prevRange <= 0) return NaN;
+function computeDepthIntoPrevious(
+  prev: OhlcBar,
+  curr: OhlcBar,
+  macroTrendPrev: MacroTrend,
+): number {
+  const range = prev.high - prev.low;
+  if (!Number.isFinite(range) || range <= 0) return NaN;
 
-  const overlapHigh = Math.min(prev.high, curr.high);
-  const overlapLow = Math.max(prev.low, curr.low);
-  const overlap = Math.max(0, overlapHigh - overlapLow);
+  let depth: number;
 
-  // Add any extension beyond the previous range so overshoots show up as >1.0
-  const overshoot = Math.max(prev.low - curr.low, curr.high - prev.high, 0);
+  if (macroTrendPrev === "Bull") {
+    depth = (prev.high - curr.low) / range;
+  } else if (macroTrendPrev === "Bear") {
+    depth = (curr.high - prev.low) / range;
+  } else {
+    return NaN;
+  }
 
-  return (overlap + overshoot) / prevRange;
+  if (!Number.isFinite(depth)) return NaN;
+
+  return Math.max(0, depth);
 }
 
 export function computeLivePullbackIntoPrev(
@@ -134,7 +143,7 @@ export function buildCandlePairPullbacks(
       { trendLookback },
     );
 
-    const depthIntoPrevPct = computeDepthIntoPrevious(prev, curr);
+    const depthIntoPrevPct = computeDepthIntoPrevious(prev, curr, macroTrend);
     if (!Number.isFinite(depthIntoPrevPct)) continue;
     const bucket = classifyPullbackBucket(depthIntoPrevPct);
 

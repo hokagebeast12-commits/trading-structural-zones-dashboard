@@ -34,7 +34,7 @@ export function buildCandidateDiagnostics(
 
   const hasDirectionalTrend = trend === "Bull" || trend === "Bear";
   const locationAligned =
-    hasDirectionalTrend &&
+    !hasDirectionalTrend ||
     ((trend === "Bull" && location === "Discount") ||
       (trend === "Bear" && location === "Premium"));
   const atOrNearZone =

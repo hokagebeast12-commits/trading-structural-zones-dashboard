@@ -136,6 +136,19 @@ export interface CandidateDiagnostics {
   conditions: CandidateCondition[];
 }
 
+export interface MacroTrendDiagnostics {
+  /** Count of bullish trend days inside the lookback window */
+  bullDays: number;
+  /** Count of bearish trend days inside the lookback window */
+  bearDays: number;
+  /** Total non-neutral trend days evaluated */
+  totalTrendDays: number;
+  /** Minimum dominant side count required to call a macro trend */
+  dominanceThreshold: number;
+  /** Lookback window (in sessions) used for the calculation */
+  lookback: number;
+}
+
 // Live price vs nearest zone snapshot for UI / decision support
 export interface NearestZoneInfo {
   /** Live spot price at time of scan */
@@ -166,6 +179,8 @@ export interface SymbolScanResult {
   kind: "ok";
   symbol: SymbolCode;
   macroTrend: "Bull" | "Bear" | "Neutral";
+  /** Breakdown of bullish vs bearish trend days used to pick macroTrend */
+  macroTrendDiagnostics?: MacroTrendDiagnostics;
   trendDay: "Bull" | "Bear" | "Neutral";
   alignment:
     | "AlignedLong"

@@ -59,7 +59,14 @@ export async function scanSymbol(
   }
 
   // Analyze trend
-  const { macroTrend, trendDay, alignment, location, atr20 } = classifyTrend(bars, {
+  const {
+    macroTrend,
+    macroTrendDiagnostics,
+    trendDay,
+    alignment,
+    location,
+    atr20,
+  } = classifyTrend(bars, {
     lookbackDays,
     atrWindow,
     trendLookback,
@@ -172,6 +179,10 @@ export async function scanSymbol(
   return {
     kind: "ok",
     symbol,
+    macroTrend,
+    macroTrendDiagnostics,
+    trendDay,
+    alignment,
     trend,
     atr20,
     location,

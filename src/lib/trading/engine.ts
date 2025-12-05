@@ -14,6 +14,7 @@ import {
   type CurrentPullbackSnapshot,
   type PullbackScenarioKey,
   computeLivePullbackIntoPrev,
+  classifySweetspotState,
 } from "./pullback-analysis";
 import { evaluateSweetSpot } from "./sweet-spot";
 import {
@@ -164,6 +165,20 @@ export async function scanSymbol(
 
   const nearestZoneEstimate = computeNearestZoneInfo(zones, baseSpot, atr20);
 
+  const sweetspotLow = nearestZoneEstimate?.zone_low ?? NaN;
+  const sweetspotHigh = nearestZoneEstimate?.zone_high ?? NaN;
+
+  const highToday = Number.isFinite(lastBar.high) ? lastBar.high : effectivePrice;
+  const lowToday = Number.isFinite(lastBar.low) ? lastBar.low : effectivePrice;
+
+  const sweetspotState = classifySweetspotState(
+    sweetspotLow,
+    sweetspotHigh,
+    highToday,
+    lowToday,
+    effectivePrice,
+  );
+
   const sweetSpotSignal = evaluateSweetSpot({
     trend,
     macroTrend,
@@ -238,6 +253,7 @@ export async function scanSymbol(
     pullbackScenarioStats,
     typicalPullback,
     nearestZone: nearestZoneEstimate,
+    sweetspotState,
   };
 }
 

@@ -631,6 +631,7 @@ export default function TradingDashboard() {
                     const livePrice = symbolResult.livePrice;
                     const nearestZone = symbolResult.nearestZone;
                     const pullback = symbolResult.pullback;
+                    const sweetspotState = symbolResult.sweetspotState ?? null;
 
                     const priceFormatter = (value: number) =>
                       formatPrice(symbol, value);
@@ -757,6 +758,7 @@ export default function TradingDashboard() {
                           sampleCount: pullback?.sampleCount ?? 0,
                           lookbackDays: pullback?.lookbackDays ?? 0,
                         }}
+                        sweetspotState={sweetspotState}
                         fallbackClose={{
                           price: symbolResult.lastClose ?? 0,
                           timeframeLabel: "Daily",

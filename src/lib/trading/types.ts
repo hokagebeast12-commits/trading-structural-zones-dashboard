@@ -165,6 +165,14 @@ export interface NearestZoneInfo {
 export interface SymbolScanResult {
   kind: "ok";
   symbol: SymbolCode;
+  macroTrend: "Bull" | "Bear" | "Neutral";
+  trendDay: "Bull" | "Bear" | "Neutral";
+  alignment:
+    | "AlignedLong"
+    | "AlignedShort"
+    | "CounterLong"
+    | "CounterShort"
+    | "Neutral";
   trend: "Bull" | "Bear" | "Neutral";
   atr20: number;
   location: "Discount" | "Mid" | "Premium";

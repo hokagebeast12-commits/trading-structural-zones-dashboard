@@ -39,7 +39,14 @@ export interface FallbackCloseInfo {
 export interface SymbolCardProps {
   symbol: string;
   atr20: number;
-  trend: TrendDirection;
+  macroTrend: TrendDirection;
+  trendDay: TrendDirection;
+  alignment:
+    | "alignedLong"
+    | "alignedShort"
+    | "counterLong"
+    | "counterShort"
+    | "neutral";
   location: LocationBucket;
   candidateStatus: CandidateStatus;
   livePrice: number;

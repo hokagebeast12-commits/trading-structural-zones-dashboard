@@ -49,10 +49,29 @@ function formatPrice(
   return price.toFixed(d);
 }
 
-function mapTrendDirection(trend: SymbolScanResult["trend"]): TrendDirection {
-  if (trend === "Bull") return "bull";
-  if (trend === "Bear") return "bear";
+function mapTrendDirection(
+  macroTrend: SymbolScanResult["macroTrend"],
+): TrendDirection {
+  if (macroTrend === "Bull") return "bull";
+  if (macroTrend === "Bear") return "bear";
   return "range";
+}
+
+function mapTrendAlignment(
+  alignment: SymbolScanResult["alignment"],
+): "alignedLong" | "alignedShort" | "counterLong" | "counterShort" | "neutral" {
+  switch (alignment) {
+    case "AlignedLong":
+      return "alignedLong";
+    case "AlignedShort":
+      return "alignedShort";
+    case "CounterLong":
+      return "counterLong";
+    case "CounterShort":
+      return "counterShort";
+    default:
+      return "neutral";
+  }
 }
 
 function mapLocationBucket(
@@ -120,7 +139,7 @@ type ManualCloseState = Record<SymbolCode, { enabled: boolean; value: string }>;
 
 interface FlattenedTradeRow {
   symbol: SymbolCode;
-  trend: SymbolScanResult["trend"];
+  trend: SymbolScanResult["macroTrend"];
   location: SymbolScanResult["location"];
   trade: TradeCandidate;
 }
@@ -329,7 +348,7 @@ export default function TradingDashboard() {
       s.trades.forEach((trade) => {
         rows.push({
           symbol,
-          trend: s.trend,
+          trend: s.macroTrend,
           location: s.location,
           trade,
         });
@@ -603,7 +622,11 @@ export default function TradingDashboard() {
                       );
                     }
 
-                    const trend = symbolResult.trend;
+                    const macroTrend = symbolResult.macroTrend;
+                    const trendDay = symbolResult.trendDay;
+                    const alignment = symbolResult.alignment;
+                    const trendDiagnostics = symbolResult.trendDiagnostics;
+                    const trend = macroTrend;
                     const location = symbolResult.location;
                     const trades = symbolResult.trades ?? [];
                     const livePrice = symbolResult.livePrice;
@@ -733,7 +756,10 @@ export default function TradingDashboard() {
                         key={symbol}
                         symbol={symbol}
                         atr20={symbolResult.atr20 ?? 0}
-                        trend={mapTrendDirection(trend)}
+                        macroTrend={mapTrendDirection(macroTrend)}
+                        trendDay={mapTrendDirection(trendDay)}
+                        alignment={mapTrendAlignment(alignment)}
+                        trendDiagnostics={trendDiagnostics}
                         location={mapLocationBucket(location)}
                         candidateStatus={candidateStatus}
                         livePrice={livePriceValue}

@@ -12,6 +12,14 @@ export type CandidateStatus = "none" | "watch" | "long" | "short";
 export type CandidateCondition = CandidateDiagnostics["conditions"][number];
 export type { CandidateDiagnostics };
 
+export interface TrendDiagnosticsSummary {
+  lookback: number;
+  bullTrendDays: number;
+  bearTrendDays: number;
+  sampleSize: number;
+  threshold: number;
+}
+
 export type CloseMode = "manual" | "auto";
 
 export type LivePriceSource = "live" | "fallback" | "manual";
@@ -39,9 +47,17 @@ export interface FallbackCloseInfo {
 export interface SymbolCardProps {
   symbol: string;
   atr20: number;
-  trend: TrendDirection;
+  macroTrend: TrendDirection;
+  trendDay: TrendDirection;
+  alignment:
+    | "alignedLong"
+    | "alignedShort"
+    | "counterLong"
+    | "counterShort"
+    | "neutral";
   location: LocationBucket;
   candidateStatus: CandidateStatus;
+  trendDiagnostics?: TrendDiagnosticsSummary;
   livePrice: number;
   livePriceSource: LivePriceSource;
   closeMode: CloseMode;

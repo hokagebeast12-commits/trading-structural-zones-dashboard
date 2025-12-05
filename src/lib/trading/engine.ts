@@ -59,11 +59,20 @@ export async function scanSymbol(
   }
 
   // Analyze trend
-  const { trend, location, atr20 } = classifyTrend(bars, {
+  const {
+    macroTrend,
+    trendDay,
+    alignment,
+    location,
+    atr20,
+    trendDiagnostics,
+  } = classifyTrend(bars, {
     lookbackDays,
     atrWindow,
     trendLookback,
   });
+
+  const trend = macroTrend;
 
   const pullback = computePullbackStats(bars, trend);
   const pullbackHistory = computePullbackHistoryStats(bars, {
@@ -115,6 +124,9 @@ export async function scanSymbol(
 
   const sweetSpotSignal = evaluateSweetSpot({
     trend,
+    macroTrend,
+    trendDay,
+    alignment,
     pullbackDepth: pullback
       ? { pct: pullback.depth ?? null, bucket: pullback.fibBucket ?? null }
       : undefined,
@@ -167,7 +179,11 @@ export async function scanSymbol(
   return {
     kind: "ok",
     symbol,
+    macroTrend,
+    trendDay,
+    alignment,
     trend,
+    trendDiagnostics,
     atr20,
     location,
     zones,

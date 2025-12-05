@@ -4,11 +4,12 @@ import * as React from "react";
 import type { SymbolCardProps } from "@/types/trading";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { PullbackDepthBlock } from "./pullback-depth-block";
 import { CandidateStatusBlock } from "./candidate-status-block";
 
-const TREND_LABEL: Record<SymbolCardProps["trend"], string> = {
+const TREND_LABEL: Record<SymbolCardProps["macroTrend"], string> = {
   bull: "Bull",
   bear: "Bear",
   range: "Range",
@@ -18,18 +19,6 @@ const LOCATION_LABEL: Record<SymbolCardProps["location"], string> = {
   premium: "Premium",
   discount: "Discount",
   mid: "Mid",
-};
-
-const TREND_COLOR: Record<SymbolCardProps["trend"], string> = {
-  bull: "text-emerald-400",
-  bear: "text-rose-400",
-  range: "text-slate-200",
-};
-
-const LOCATION_COLOR: Record<SymbolCardProps["location"], string> = {
-  premium: "text-rose-400",
-  discount: "text-emerald-400",
-  mid: "text-slate-200",
 };
 
 const CANDIDATE_LABEL: Record<SymbolCardProps["candidateStatus"], string> = {
@@ -52,11 +41,20 @@ const LOCATION_STYLE: Record<SymbolCardProps["nearestZone"]["label"], string> = 
   FAR: "bg-slate-700 text-slate-50",
 };
 
+const MACRO_TREND_BADGE: Record<SymbolCardProps["macroTrend"], string> = {
+  bull: "border-emerald-500/70 bg-emerald-500/15 text-emerald-300",
+  bear: "border-rose-500/70 bg-rose-500/15 text-rose-300",
+  range: "border-slate-600/70 bg-slate-800/50 text-slate-200",
+};
+
 export function SymbolCard(props: SymbolCardProps) {
   const {
     symbol,
     atr20,
-    trend,
+    macroTrend,
+    trendDay,
+    alignment,
+    trendDiagnostics,
     location,
     candidateStatus,
     livePrice,
@@ -104,16 +102,86 @@ export function SymbolCard(props: SymbolCardProps) {
           </div>
 
           <p className="text-xs text-slate-400">
-            ATR(20):{" "}
-            <span className="font-medium text-slate-100">{atr20.toFixed(2)}</span>{" "}
-            · Trend:{" "}
-            <span className={cn("font-medium", TREND_COLOR[trend])}>
-              {TREND_LABEL[trend]}
-            </span>{" "}
-            · Location:{" "}
-            <span className={cn("font-medium", LOCATION_COLOR[location])}>
-              {LOCATION_LABEL[location]}
-            </span>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] uppercase tracking-wide text-slate-400">
+                  Macro trend
+                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                        MACRO_TREND_BADGE[macroTrend],
+                      )}
+                    >
+                      {macroTrend === "bull" ? "Bull" : macroTrend === "bear" ? "Bear" : "Range"}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs space-y-1 text-left" side="bottom">
+                    <p className="text-xs font-semibold text-slate-100">Macro trend rationale</p>
+                    {trendDiagnostics ? (
+                      <>
+                        <p className="text-[11px] text-slate-200">
+                          {`Bull trend days: ${trendDiagnostics.bullTrendDays}, Bear trend days: ${trendDiagnostics.bearTrendDays} over last ${trendDiagnostics.lookback} sessions.`}
+                        </p>
+                        {trendDiagnostics.sampleSize > 0 ? (
+                          <p className="text-[11px] text-slate-400">
+                            {`Requires ≥${trendDiagnostics.threshold} of ${trendDiagnostics.sampleSize} qualifying trend days (60% rule). Latest: ${TREND_LABEL[trendDay]}.`}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-slate-400">
+                            No qualifying trend days in this window.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-[11px] text-slate-400">
+                        Macro bias is derived from the balance of recent trend days.
+                      </p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              <span className="text-[11px] text-slate-400">
+                · Latest trend day:{" "}
+                <span
+                  className={cn(
+                    "font-medium",
+                    trendDay === "bull" && "text-emerald-400",
+                    trendDay === "bear" && "text-rose-400",
+                    trendDay === "range" && "text-slate-300",
+                  )}
+                >
+                  {TREND_LABEL[trendDay]}
+                </span>
+                {alignment === "counterLong" || alignment === "counterShort" ? (
+                  <span className="ml-1 text-amber-300">(counter-trend)</span>
+                ) : alignment === "alignedLong" || alignment === "alignedShort" ? (
+                  <span className="ml-1 text-emerald-300">(aligned)</span>
+                ) : null}
+              </span>
+
+              <span className="text-[11px] text-slate-400">
+                · Location:{" "}
+                <span
+                  className={cn(
+                    "font-medium",
+                    location === "premium" && "text-rose-400",
+                    location === "discount" && "text-emerald-400",
+                    location === "mid" && "text-slate-200",
+                  )}
+                >
+                  {LOCATION_LABEL[location]}
+                </span>
+              </span>
+
+              <span className="text-[11px] text-slate-400">
+                · ATR(20):{" "}
+                <span className="font-medium text-slate-100">{atr20.toFixed(2)}</span>
+              </span>
+            </div>
           </p>
         </div>
 

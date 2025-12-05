@@ -69,7 +69,7 @@ export function computePullbackHistoryStats(
 
   if (bars.length < 2) return undefined;
 
-  const { trend: currentTrend } = classifyTrend(bars, { trendLookback });
+  const { macroTrend: currentTrend } = classifyTrend(bars, { trendLookback });
 
   const depths: number[] = [];
   const bucketCounts: Record<string, number> = {};
@@ -78,7 +78,7 @@ export function computePullbackHistoryStats(
 
   for (let i = startIndex; i < bars.length; i++) {
     const slice = bars.slice(0, i + 1);
-    const { trend } = classifyTrend(slice, { trendLookback });
+    const { macroTrend: trend } = classifyTrend(slice, { trendLookback });
 
     if (trend === "Neutral") continue;
     if (mode === "matchingTrend" && trend !== currentTrend) continue;

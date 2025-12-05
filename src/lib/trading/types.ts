@@ -1,6 +1,7 @@
 import type {
   CurrentPullbackSnapshot,
   PullbackScenarioStats,
+  SweetspotState,
 } from "./pullback-analysis";
 
 // All supported symbols in the scanner
@@ -173,6 +174,8 @@ export interface SymbolScanResult {
   nearestZone?: NearestZoneInfo | null;
 
   pullback: CurrentPullbackSnapshot;
+
+  sweetspotState?: SweetspotState | null;
 
   pullbackScenarioStats?: PullbackScenarioStats[];
 

@@ -1,5 +1,6 @@
 import type React from "react";
 import type { CandidateDiagnostics } from "@/lib/trading/types";
+import type { SweetspotState } from "@/lib/trading/pullback-analysis";
 
 export type TrendDirection = "bull" | "bear" | "range";
 
@@ -83,6 +84,7 @@ export interface SymbolCardProps {
   closeMode: CloseMode;
   nearestZone: NearestZoneInfo;
   pullback: PullbackSnapshotCard;
+  sweetspotState?: SweetspotState | null;
   fallbackClose: FallbackCloseInfo;
   priceFormatter?: (price: number) => string;
   children?: React.ReactNode;

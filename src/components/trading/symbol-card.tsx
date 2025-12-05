@@ -47,6 +47,18 @@ const MACRO_TREND_BADGE: Record<SymbolCardProps["macroTrend"], string> = {
   range: "border-slate-600/70 bg-slate-800/50 text-slate-200",
 };
 
+const SWEETSPOT_LABEL: Record<NonNullable<SymbolCardProps["sweetspotState"]>, string> = {
+  not_touched: "Not touched",
+  currently_in: "In sweetspot",
+  touched_and_rejected: "Rejected from sweetspot",
+};
+
+const SWEETSPOT_STYLE: Record<NonNullable<SymbolCardProps["sweetspotState"]>, string> = {
+  not_touched: "border-slate-600 text-slate-200",
+  currently_in: "border-emerald-500/70 text-emerald-200",
+  touched_and_rejected: "border-amber-500/70 text-amber-200",
+};
+
 export function SymbolCard(props: SymbolCardProps) {
   const {
     symbol,
@@ -61,6 +73,7 @@ export function SymbolCard(props: SymbolCardProps) {
     closeMode,
     nearestZone,
     pullback,
+    sweetspotState,
     fallbackClose,
     candidateDiagnostics,
     priceFormatter,
@@ -94,6 +107,22 @@ export function SymbolCard(props: SymbolCardProps) {
       : candidateStatus === "short"
         ? "destructive"
         : "outline";
+
+  const sweetspotLabel = sweetspotState
+    ? SWEETSPOT_LABEL[sweetspotState]
+    : "Not available";
+  const sweetspotDescription = (() => {
+    if (!sweetspotState) {
+      return "Sweetspot zone not configured for this symbol.";
+    }
+    if (sweetspotState === "not_touched") {
+      return "Today's D1 range has not yet reached the sweetspot band.";
+    }
+    if (sweetspotState === "currently_in") {
+      return "Today's D1 price action is trading inside the sweetspot band.";
+    }
+    return "Price touched the sweetspot band earlier today and is currently outside it.";
+  })();
 
   return (
     <Card
@@ -228,6 +257,25 @@ export function SymbolCard(props: SymbolCardProps) {
               style={{ width: `${Math.min(Math.max(nearestZone.distancePercent, 0), 100)}%` }}
             />
           </div>
+        </section>
+
+        {/* Sweetspot state */}
+        <section className="flex items-center justify-between rounded-xl bg-slate-900/70 px-3 py-2">
+          <div className="space-y-1">
+            <p className="text-[11px] uppercase tracking-wide text-slate-400">Sweetspot (today)</p>
+            <p className="text-sm font-semibold text-slate-100">{sweetspotLabel}</p>
+            <p className="text-[11px] text-slate-400">{sweetspotDescription}</p>
+          </div>
+
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px] font-semibold uppercase tracking-wide",
+              sweetspotState ? SWEETSPOT_STYLE[sweetspotState] : "border-slate-700 text-slate-300",
+            )}
+          >
+            {sweetspotLabel}
+          </Badge>
         </section>
 
         {/* 3. Pullback row: dedicated component */}

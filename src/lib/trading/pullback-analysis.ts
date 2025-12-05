@@ -9,6 +9,11 @@ export type PullbackBucket =
   | "0.786-1.0"
   | "1.0+";
 
+export type SweetspotState =
+  | "not_touched"
+  | "currently_in"
+  | "touched_and_rejected";
+
 export interface PullbackScenarioKey {
   macroTrendPrev: MacroTrend;
   trendDayPrev: TrendDayDirection;
@@ -62,7 +67,7 @@ export interface CurrentPullbackSnapshot {
 }
 
 export function classifyPullbackBucket(depth: number): PullbackBucket {
-  if (!Number.isFinite(depth) || depth <= 0) return "0-0.382";
+  if (!Number.isFinite(depth)) return "0-0.382";
   if (depth < 0.382) return "0-0.382";
   if (depth < 0.5) return "0.382-0.5";
   if (depth < 0.618) return "0.5-0.618";
@@ -71,13 +76,15 @@ export function classifyPullbackBucket(depth: number): PullbackBucket {
   return "1.0+";
 }
 
+const TINY_RANGE = 1e-6;
+
 function computeDepthIntoPrevious(
   prev: OhlcBar,
   curr: OhlcBar,
   macroTrendPrev: MacroTrend,
 ): number {
   const range = prev.high - prev.low;
-  if (!Number.isFinite(range) || range <= 0) return NaN;
+  if (!Number.isFinite(range) || range <= TINY_RANGE) return NaN;
 
   let depth: number;
 
@@ -91,6 +98,7 @@ function computeDepthIntoPrevious(
 
   if (!Number.isFinite(depth)) return NaN;
 
+  // Allow overshoots > 1.0; clamping to 1 flattened historical depth stats.
   return Math.max(0, depth);
 }
 
@@ -104,7 +112,7 @@ export function computeLivePullbackIntoPrev(
     return null;
   }
 
-  let depth = 0;
+  let depth: number;
 
   if (macroTrend === "Bull") {
     depth = (prev.high - currentPrice) / range;
@@ -117,6 +125,41 @@ export function computeLivePullbackIntoPrev(
   if (!Number.isFinite(depth)) return null;
 
   return Math.max(0, depth);
+}
+
+export function classifySweetspotState(
+  sweetspotLow: number,
+  sweetspotHigh: number,
+  highToday: number,
+  lowToday: number,
+  currentPrice: number,
+): SweetspotState | null {
+  if (
+    !Number.isFinite(sweetspotLow) ||
+    !Number.isFinite(sweetspotHigh) ||
+    !Number.isFinite(highToday) ||
+    !Number.isFinite(lowToday) ||
+    !Number.isFinite(currentPrice) ||
+    sweetspotLow >= sweetspotHigh
+  ) {
+    return null;
+  }
+
+  const inSweetspotNow =
+    currentPrice >= sweetspotLow && currentPrice <= sweetspotHigh;
+
+  const rangeIntersectsSweetspot =
+    highToday >= sweetspotLow && lowToday <= sweetspotHigh;
+
+  if (!rangeIntersectsSweetspot) {
+    return "not_touched";
+  }
+
+  if (inSweetspotNow) {
+    return "currently_in";
+  }
+
+  return "touched_and_rejected";
 }
 
 export function buildCandlePairPullbacks(
@@ -134,9 +177,6 @@ export function buildCandlePairPullbacks(
     const prevIndex = currIndex - 1;
     const prev = bars[prevIndex];
     const curr = bars[currIndex];
-
-    const prevRange = prev.high - prev.low;
-    if (prevRange <= 0) continue;
 
     const { macroTrend, trendDay, alignment } = classifyTrend(
       bars.slice(0, prevIndex + 1),

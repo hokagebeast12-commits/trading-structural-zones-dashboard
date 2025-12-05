@@ -8,9 +8,10 @@ import {
   generateModelDTrades,
 } from "./models";
 import {
-  computePullbackHistoryStats,
-  computePullbackStats,
-} from "./pullback";
+  buildCandlePairPullbacks,
+  buildPullbackScenarioStats,
+  type CurrentPullbackSnapshot,
+} from "./pullback-analysis";
 import { evaluateSweetSpot } from "./sweet-spot";
 import {
   SYMBOLS,
@@ -36,9 +37,9 @@ export async function scanSymbol(
     options?.params?.trendLookback ?? CONFIG.trend_lookback,
   );
   const atrWindow = Math.max(2, options?.params?.atrWindow ?? 20);
-  const pullbackWindow = Math.max(
+  const pullbackLookbackDays = Math.max(
     2,
-    options?.params?.pullbackWindow ?? CONFIG.pullback_history_window,
+    options?.params?.pullbackWindow ?? CONFIG.pullback_lookback_days,
   );
   const minRr = options?.filters?.minRr ?? CONFIG.min_rr;
   const spreadCap = options?.filters?.spreadCap;
@@ -47,7 +48,7 @@ export async function scanSymbol(
   const neededBars = Math.max(
     lookbackDays,
     atrWindow + 1,
-    pullbackWindow + 1,
+    pullbackLookbackDays + 1,
     trendLookback + 1,
   );
   const bars = await getDailyOhlc(symbol, neededBars);
@@ -74,34 +75,59 @@ export async function scanSymbol(
 
   const trend = macroTrend;
 
-  const pullback = computePullbackStats(bars, trend);
-  const pullbackHistory = computePullbackHistoryStats(bars, {
-    window: pullbackWindow,
+  const pullbackRecords = buildCandlePairPullbacks(
+    symbol,
+    bars,
     trendLookback,
-    mode: "matchingTrend",
-  });
+    pullbackLookbackDays,
+  );
+  const pullbackScenarioStats = buildPullbackScenarioStats(
+    pullbackRecords,
+    pullbackLookbackDays,
+  );
 
-  const bucketEntries = pullbackHistory?.bucketCounts
-    ? Object.entries(pullbackHistory.bucketCounts)
-    : [];
+  const prevIndex = bars.length - 2;
+  const currIndex = bars.length - 1;
+  const currentRecord = pullbackRecords.find(
+    (record) =>
+      record.prevIndex === prevIndex && record.currIndex === currIndex,
+  );
 
-  const dominantBucket =
-    bucketEntries.length > 0
-      ? bucketEntries.reduce(
-          (acc, [bucket, count]) => {
-            if (count > acc.count) return { bucket, count };
-            return acc;
-          },
-          { bucket: "", count: -Infinity },
-        ).bucket || null
-      : null;
+  const matchingStats = currentRecord
+    ? pullbackScenarioStats.find(
+        (stats) =>
+          stats.key.macroTrendPrev === currentRecord.scenario.macroTrendPrev &&
+          stats.key.trendDayPrev === currentRecord.scenario.trendDayPrev &&
+          stats.key.alignmentPrev === currentRecord.scenario.alignmentPrev,
+      )
+    : undefined;
 
-  const typicalPullback = pullbackHistory
+  const pullback: CurrentPullbackSnapshot = {
+    depthIntoPrevPct: currentRecord?.depthIntoPrevPct ?? null,
+    bucket: currentRecord?.bucket ?? null,
+    scenario: currentRecord?.scenario ?? null,
+    typicalMeanPct: matchingStats?.meanDepthPct ?? null,
+    typicalMedianPct: matchingStats?.medianDepthPct ?? null,
+    sampleCount: matchingStats?.sampleCount ?? 0,
+    lookbackDays: matchingStats?.lookbackDays ?? pullbackLookbackDays,
+  };
+
+  const dominantBucket = matchingStats
+    ? Object.entries(matchingStats.bucketCounts).reduce(
+        (acc, [bucket, count]) => {
+          if (count > acc.count) return { bucket, count };
+          return acc;
+        },
+        { bucket: "", count: -Infinity },
+      ).bucket || null
+    : null;
+
+  const typicalPullback = matchingStats
     ? {
-        lookbackDays: pullbackHistory.window,
-        samples: pullbackHistory.sampleSize,
-        meanPct: pullbackHistory.meanDepth,
-        medianPct: pullbackHistory.medianDepth,
+        lookbackDays: matchingStats.lookbackDays,
+        samples: matchingStats.sampleCount,
+        meanPct: matchingStats.meanDepthPct,
+        medianPct: matchingStats.medianDepthPct,
         dominantBucket,
       }
     : undefined;
@@ -127,9 +153,10 @@ export async function scanSymbol(
     macroTrend,
     trendDay,
     alignment,
-    pullbackDepth: pullback
-      ? { pct: pullback.depth ?? null, bucket: pullback.fibBucket ?? null }
-      : undefined,
+    pullbackDepth: {
+      pct: pullback.depthIntoPrevPct,
+      bucket: pullback.bucket,
+    },
     typicalPullback,
     nearestZone: nearestZoneEstimate,
   });
@@ -161,9 +188,10 @@ export async function scanSymbol(
   );
   const modelDTrades = generateModelDTrades(trend, zones, liquidity, bars, symbol, {
     ...tradeOptions,
-    pullbackDepth: pullback
-      ? { pct: pullback.depth ?? null, bucket: pullback.fibBucket ?? null }
-      : null,
+    pullbackDepth:
+      pullback.depthIntoPrevPct != null
+        ? { pct: pullback.depthIntoPrevPct, bucket: pullback.bucket }
+        : null,
     typicalPullback,
     nearestZone: nearestZoneEstimate,
     isSweetSpot: sweetSpotSignal.isSweetSpot,
@@ -191,7 +219,7 @@ export async function scanSymbol(
     // bars.length >= neededBars is guaranteed above, so this is safe
     lastClose: bars[bars.length - 1].close,
     pullback,
-    pullbackHistory,
+    pullbackScenarioStats,
     typicalPullback,
     nearestZone: nearestZoneEstimate,
   };

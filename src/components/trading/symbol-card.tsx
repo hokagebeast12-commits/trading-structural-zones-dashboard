@@ -4,6 +4,7 @@ import * as React from "react";
 import type { SymbolCardProps } from "@/types/trading";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { PullbackDepthBlock } from "./pullback-depth-block";
 import { CandidateStatusBlock } from "./candidate-status-block";
@@ -71,6 +72,22 @@ export function SymbolCard(props: SymbolCardProps) {
   }, [priceFormatter]);
 
   const isCandidate = candidateStatus === "long" || candidateStatus === "short";
+  const macroTrendLabel = macroTrend === "bull" ? "Bull" : macroTrend === "bear" ? "Bear" : "Range";
+  const macroDiagnostics = props.macroTrendDiagnostics;
+  const bullDays = macroDiagnostics?.bullDays ?? 0;
+  const bearDays = macroDiagnostics?.bearDays ?? 0;
+  const totalTrendDays = macroDiagnostics?.totalTrendDays ?? 0;
+  const dominanceThreshold = macroDiagnostics?.dominanceThreshold ?? 0;
+  const lookback = macroDiagnostics?.lookback ?? 0;
+  const thresholdDescription =
+    dominanceThreshold > 0 && totalTrendDays > 0
+      ? `${dominanceThreshold}+ of ${totalTrendDays}`
+      : "a 60% majority of the counted";
+  const lookbackDescription = lookback > 0 ? `last ${lookback} sessions` : "recent sessions";
+  const rangeReason =
+    macroTrend === "range"
+      ? "No side cleared the threshold, so the macro bias is Range."
+      : "Dominant side cleared the threshold.";
   const candidateBadgeVariant =
     candidateStatus === "long"
       ? "default"
@@ -105,14 +122,29 @@ export function SymbolCard(props: SymbolCardProps) {
                 <span className="text-[11px] uppercase tracking-wide text-slate-400">
                   Macro trend
                 </span>
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold",
-                    MACRO_TREND_BADGE[macroTrend],
-                  )}
-                >
-                  {macroTrend === "bull" ? "Bull" : macroTrend === "bear" ? "Bear" : "Range"}
-                </span>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                        MACRO_TREND_BADGE[macroTrend],
+                      )}
+                    >
+                      {macroTrendLabel}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs space-y-1 text-left text-[11px]">
+                    <p className="font-semibold text-slate-100">Macro trend: {macroTrendLabel}</p>
+                    <p className="text-slate-200">
+                      Bullish trend days: {bullDays} · Bearish trend days: {bearDays}
+                    </p>
+                    <p className="text-slate-400">
+                      Uses the {lookbackDescription}. Needs {thresholdDescription} breakout days to call Bull/Bear.
+                      {" "}
+                      {rangeReason}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
 
               <span className="text-[11px] text-slate-400">

@@ -1,4 +1,4 @@
-import { OhlcBar, CONFIG } from './types';
+import { CONFIG, type MacroTrendDiagnostics, type OhlcBar } from './types';
 
 export type MacroTrend = "Bull" | "Bear" | "Neutral";
 export type TrendDayDirection = "Bull" | "Bear" | "Neutral";
@@ -15,6 +15,7 @@ export type Location = "Discount" | "Mid" | "Premium";
 
 export interface TrendAnalysis {
   macroTrend: MacroTrend;
+  macroTrendDiagnostics: MacroTrendDiagnostics;
   trendDay: TrendDayDirection;
   alignment: TrendAlignment;
   location: Location;
@@ -37,6 +38,13 @@ export function classifyTrend(
   if (bars.length < 2) {
     return {
       macroTrend: "Neutral",
+      macroTrendDiagnostics: {
+        bullDays: 0,
+        bearDays: 0,
+        totalTrendDays: 0,
+        dominanceThreshold: 0,
+        lookback: trendLookback,
+      },
       trendDay: "Neutral",
       alignment: "Neutral",
       location: "Mid",
@@ -60,7 +68,8 @@ export function classifyTrend(
   }
 
   const trendDay = computeLatestTrendDay(bars, trendLookback);
-  const macroTrend = computeMacroTrend(bars, trendLookback);
+  const { trend: macroTrend, diagnostics: macroTrendDiagnostics } =
+    computeMacroTrend(bars, trendLookback);
   const alignment = computeTrendAlignment(macroTrend, trendDay);
 
   // Determine location
@@ -89,6 +98,7 @@ export function classifyTrend(
 
   return {
     macroTrend,
+    macroTrendDiagnostics,
     trendDay,
     alignment,
     location,
@@ -149,7 +159,7 @@ function computeLatestTrendDay(
 function computeMacroTrend(
   bars: OhlcBar[],
   trendLookback: number,
-): MacroTrend {
+): { trend: MacroTrend; diagnostics: MacroTrendDiagnostics } {
   const trendBars = bars.slice(-Math.max(trendLookback + 1, 2));
 
   let bullCount = 0;
@@ -165,15 +175,23 @@ function computeMacroTrend(
   }
 
   const total = bullCount + bearCount;
-  if (total === 0) return "Neutral";
-
   // 60% threshold to avoid flipping on noise
-  const threshold = Math.ceil(total * 0.6);
+  const threshold = total === 0 ? 0 : Math.ceil(total * 0.6);
 
-  if (bullCount >= threshold && bullCount > bearCount) return "Bull";
-  if (bearCount >= threshold && bearCount > bullCount) return "Bear";
+  let trend: MacroTrend = "Neutral";
+  if (bullCount >= threshold && bullCount > bearCount) trend = "Bull";
+  else if (bearCount >= threshold && bearCount > bullCount) trend = "Bear";
 
-  return "Neutral";
+  return {
+    trend,
+    diagnostics: {
+      bullDays: bullCount,
+      bearDays: bearCount,
+      totalTrendDays: total,
+      dominanceThreshold: threshold,
+      lookback: trendLookback,
+    },
+  };
 }
 
 function computeTrendAlignment(

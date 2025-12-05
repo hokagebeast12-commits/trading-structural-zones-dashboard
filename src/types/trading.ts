@@ -36,10 +36,19 @@ export interface FallbackCloseInfo {
   timeframeLabel: string;
 }
 
+export interface MacroTrendDiagnostics {
+  bullDays: number;
+  bearDays: number;
+  totalTrendDays: number;
+  dominanceThreshold: number;
+  lookback: number;
+}
+
 export interface SymbolCardProps {
   symbol: string;
   atr20: number;
   macroTrend: TrendDirection;
+  macroTrendDiagnostics?: MacroTrendDiagnostics;
   trendDay: TrendDirection;
   alignment:
     | "alignedLong"

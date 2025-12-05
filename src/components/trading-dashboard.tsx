@@ -756,6 +756,7 @@ export default function TradingDashboard() {
                         symbol={symbol}
                         atr20={symbolResult.atr20 ?? 0}
                         macroTrend={mapTrendDirection(macroTrend)}
+                        macroTrendDiagnostics={symbolResult.macroTrendDiagnostics}
                         trendDay={mapTrendDirection(trendDay)}
                         alignment={mapTrendAlignment(alignment)}
                         location={mapLocationBucket(location)}

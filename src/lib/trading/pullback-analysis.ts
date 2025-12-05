@@ -61,7 +61,7 @@ export interface CurrentPullbackSnapshot {
   lookbackDays: number;
 }
 
-function classifyPullbackBucket(depth: number): PullbackBucket {
+export function classifyPullbackBucket(depth: number): PullbackBucket {
   if (!Number.isFinite(depth) || depth <= 0) return "0-0.382";
   if (depth < 0.382) return "0-0.382";
   if (depth < 0.5) return "0.382-0.5";
@@ -83,6 +83,31 @@ function computeDepthIntoPrevious(prev: OhlcBar, curr: OhlcBar): number {
   const overshoot = Math.max(prev.low - curr.low, curr.high - prev.high, 0);
 
   return (overlap + overshoot) / prevRange;
+}
+
+export function computeLivePullbackIntoPrev(
+  prev: OhlcBar,
+  currentPrice: number,
+  macroTrend: MacroTrend,
+): number | null {
+  const range = prev.high - prev.low;
+  if (!Number.isFinite(currentPrice) || !Number.isFinite(range) || range <= 0) {
+    return null;
+  }
+
+  let depth = 0;
+
+  if (macroTrend === "Bull") {
+    depth = (prev.high - currentPrice) / range;
+  } else if (macroTrend === "Bear") {
+    depth = (currentPrice - prev.low) / range;
+  } else {
+    return null;
+  }
+
+  if (!Number.isFinite(depth)) return null;
+
+  return Math.max(0, depth);
 }
 
 export function buildCandlePairPullbacks(

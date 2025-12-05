@@ -9,37 +9,42 @@ interface PullbackDepthBlockProps {
 }
 
 export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
-  const depthPct =
+  const depth =
     pullback.depthIntoPrevPct != null &&
     Number.isFinite(pullback.depthIntoPrevPct)
-      ? pullback.depthIntoPrevPct * 100
+      ? pullback.depthIntoPrevPct
       : null;
-  const meanDepthPct =
+  const depthPct = depth != null ? depth * 100 : null;
+
+  const meanDepth =
     pullback.typicalMeanPct != null && Number.isFinite(pullback.typicalMeanPct)
-      ? pullback.typicalMeanPct * 100
+      ? pullback.typicalMeanPct
       : null;
+  const meanDepthPct = meanDepth != null ? meanDepth * 100 : null;
+
   const medianDepthPct =
     pullback.typicalMedianPct != null &&
     Number.isFinite(pullback.typicalMedianPct)
       ? pullback.typicalMedianPct * 100
       : null;
 
-  const clampedCurrent = clamp(depthPct);
-  const clampedMean = clamp(meanDepthPct);
+  const clampedCurrentPct = clampPct(depthPct);
+  const clampedMeanPct = clampPct(meanDepthPct);
 
   const deviation =
-    depthPct != null && meanDepthPct != null ? depthPct - meanDepthPct : null;
+    depth != null && meanDepth != null ? depth - meanDepth : null;
 
   const deviationLabel =
     deviation == null
       ? "No benchmark"
-      : Math.abs(deviation) < 10
+      : Math.abs(deviation) < 0.1
         ? "In typical range"
         : deviation > 0
           ? "Deeper than typical"
           : "Shallower than typical";
 
-  const showDot = depthPct != null;
+  const hasDepth = depth != null;
+  const clampedDepth = hasDepth ? Math.max(0, Math.min(depth, 1)) : 0;
   const lookbackLabel = pullback.lookbackDays
     ? `Last ${pullback.lookbackDays}d`
     : "No lookback";
@@ -68,9 +73,9 @@ export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
           className={cn(
             "text-[11px] font-medium",
             deviation == null && "text-slate-400",
-            deviation != null && Math.abs(deviation) < 10 && "text-emerald-400",
-            deviation != null && deviation > 10 && "text-amber-300",
-            deviation != null && deviation < -10 && "text-sky-300",
+            deviation != null && Math.abs(deviation) < 0.1 && "text-emerald-400",
+            deviation != null && deviation > 0.1 && "text-amber-300",
+            deviation != null && deviation < -0.1 && "text-sky-300",
           )}
         >
           {deviationLabel}
@@ -85,25 +90,26 @@ export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
             <div
               className="absolute inset-y-0 bg-slate-700/80"
               style={{
-                left: `${Math.max(clampedMean - 10, 0)}%`,
+                left: `${Math.max(clampedMeanPct - 10, 0)}%`,
                 width: `${
-                  Math.min(clampedMean + 10, 100) - Math.max(clampedMean - 10, 0)
+                  Math.min(clampedMeanPct + 10, 100) -
+                  Math.max(clampedMeanPct - 10, 0)
                 }%`,
               }}
             />
           ) : null}
           {/* current depth marker */}
-          {showDot ? (
+          {hasDepth ? (
             <div
-              className="absolute top-1/2 -mt-[5px] h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-md"
-              style={{ left: `${clampedCurrent}%` }}
+              className="absolute top-1/2 h-3 w-3 -translate-y-1/2 -translate-x-1/2 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.35)]"
+              style={{ left: `${clampedDepth * 100}%` }}
             />
           ) : null}
           {/* mean marker */}
           {Number.isFinite(meanDepthPct) ? (
             <div
               className="absolute top-0 bottom-0 w-[2px] bg-slate-200/90"
-              style={{ left: `${clampedMean}%` }}
+              style={{ left: `${clampedMeanPct}%` }}
             />
           ) : null}
         </div>
@@ -133,14 +139,14 @@ export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
           {lookbackLabel} · {pullback.sampleCount} samples
         </span>
         <span className="text-slate-500">
-          Depth measured as retrace into prior candle, filtered by matching trend day and macro trend.
+          Depth measured as how far the current price retraces into yesterday's candle, compared to historical pullbacks into previous candles after similar trend days and macro trend.
         </span>
       </div>
     </div>
   );
 }
 
-function clamp(value: number | null) {
+function clampPct(value: number | null) {
   if (value == null || !Number.isFinite(value)) return 0;
   return Math.min(Math.max(value, 0), 100);
 }

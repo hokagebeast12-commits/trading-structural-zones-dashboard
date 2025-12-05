@@ -10,7 +10,10 @@ import {
 import {
   buildCandlePairPullbacks,
   buildPullbackScenarioStats,
+  classifyPullbackBucket,
   type CurrentPullbackSnapshot,
+  type PullbackScenarioKey,
+  computeLivePullbackIntoPrev,
 } from "./pullback-analysis";
 import { evaluateSweetSpot } from "./sweet-spot";
 import {
@@ -88,24 +91,43 @@ export async function scanSymbol(
 
   const prevIndex = bars.length - 2;
   const currIndex = bars.length - 1;
-  const currentRecord = pullbackRecords.find(
-    (record) =>
-      record.prevIndex === prevIndex && record.currIndex === currIndex,
+  const prevBar = bars[prevIndex];
+  const lastBar = bars[currIndex];
+
+  const { macroTrend: macroTrendPrev, trendDay: trendDayPrev, alignment: alignmentPrev } =
+    classifyTrend(bars.slice(0, prevIndex + 1), {
+      lookbackDays,
+      atrWindow,
+      trendLookback,
+    });
+
+  const currentScenario: PullbackScenarioKey = {
+    macroTrendPrev: macroTrendPrev,
+    trendDayPrev: trendDayPrev,
+    alignmentPrev: alignmentPrev,
+  };
+
+  const manualClose = options?.manualCloses?.[symbol];
+  const manualSpot =
+    manualClose?.enabled && typeof manualClose.close === "number"
+      ? manualClose.close
+      : null;
+
+  const effectivePrice = manualSpot ?? lastBar.close;
+  const liveDepth = computeLivePullbackIntoPrev(prevBar, effectivePrice, macroTrend);
+  const liveBucket = liveDepth != null ? classifyPullbackBucket(liveDepth) : null;
+
+  const matchingStats = pullbackScenarioStats.find(
+    (stats) =>
+      stats.key.macroTrendPrev === currentScenario.macroTrendPrev &&
+      stats.key.trendDayPrev === currentScenario.trendDayPrev &&
+      stats.key.alignmentPrev === currentScenario.alignmentPrev,
   );
 
-  const matchingStats = currentRecord
-    ? pullbackScenarioStats.find(
-        (stats) =>
-          stats.key.macroTrendPrev === currentRecord.scenario.macroTrendPrev &&
-          stats.key.trendDayPrev === currentRecord.scenario.trendDayPrev &&
-          stats.key.alignmentPrev === currentRecord.scenario.alignmentPrev,
-      )
-    : undefined;
-
   const pullback: CurrentPullbackSnapshot = {
-    depthIntoPrevPct: currentRecord?.depthIntoPrevPct ?? null,
-    bucket: currentRecord?.bucket ?? null,
-    scenario: currentRecord?.scenario ?? null,
+    depthIntoPrevPct: liveDepth,
+    bucket: liveBucket,
+    scenario: currentScenario,
     typicalMeanPct: matchingStats?.meanDepthPct ?? null,
     typicalMedianPct: matchingStats?.medianDepthPct ?? null,
     sampleCount: matchingStats?.sampleCount ?? 0,
@@ -138,13 +160,7 @@ export async function scanSymbol(
   // Create liquidity map
   const liquidity = createLiquidityMap(bars.slice(-lookbackDays));
 
-  const manualClose = options?.manualCloses?.[symbol];
-  const manualSpot =
-    manualClose?.enabled && typeof manualClose.close === "number"
-      ? manualClose.close
-      : null;
-
-  const baseSpot = manualSpot ?? bars[bars.length - 1].close;
+  const baseSpot = manualSpot ?? lastBar.close;
 
   const nearestZoneEstimate = computeNearestZoneInfo(zones, baseSpot, atr20);
 

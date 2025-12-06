@@ -86,6 +86,13 @@ export function SymbolCard(props: SymbolCardProps) {
 
   const isCandidate = candidateStatus === "long" || candidateStatus === "short";
   const macroTrendLabel = macroTrend === "bull" ? "Bull" : macroTrend === "bear" ? "Bear" : "Range";
+  const latestTrendDayLabel = `${TREND_LABEL[trendDay]}${
+    alignment === "counterLong" || alignment === "counterShort"
+      ? " (counter-trend)"
+      : alignment === "alignedLong" || alignment === "alignedShort"
+        ? " (aligned)"
+        : ""
+  }`;
   const macroDiagnostics = props.macroTrendDiagnostics;
   const bullDays = macroDiagnostics?.bullDays ?? 0;
   const bearDays = macroDiagnostics?.bearDays ?? 0;
@@ -280,7 +287,11 @@ export function SymbolCard(props: SymbolCardProps) {
 
         {/* 3. Pullback row: dedicated component */}
         <section className="rounded-xl bg-slate-900/70 px-3 py-2">
-          <PullbackDepthBlock pullback={pullback} />
+          <PullbackDepthBlock
+            pullback={pullback}
+            macroTrendLabel={macroTrendLabel}
+            latestTrendDayLabel={latestTrendDayLabel}
+          />
         </section>
 
         {/* 4. Exit / fallback row */}

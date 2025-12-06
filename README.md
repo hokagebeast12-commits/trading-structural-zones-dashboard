@@ -78,6 +78,10 @@ Open [http://localhost:3000](http://localhost:3000) to see your application runn
 - If those variables are missing, the scanner now falls back to the most recent daily close so the UI still shows proximity and trade candidates. The response carries `livePrice.source: "fallback"` and an `ENV_MISSING` error to make the data provenance clear.
 - GPT models are not suitable price feeds; use a financial market API (e.g., your broker or a quotes vendor) for production data.
 
+## Trading scanner flow
+
+Each scan starts in `src/lib/trading/engine.ts`, which pulls daily OHLC data and classifies macro trend, trend day, and premium/discount location via `trend-analysis.ts`. It clusters recent opens/closes into structural zones with `zones.ts`, measures how far price sits from the nearest zone (ATR-aware) in `nearest-zone.ts`, and tracks live pullback depth plus historical sweet-spot alignment from `pullback-analysis.ts`/`sweet-spot.ts`. The resulting snapshot feeds `SymbolCard` in `src/components/trading/symbol-card.tsx`, where badges and blocks mirror those fields (macro trend badge, ATR(20), nearest-zone distance, pullback bucket, sweet-spot state, and candidate status). Reuse the shared helpers in `src/hooks` and `src/lib/utils.ts`, and follow the spacing/typography tokens in `tailwind.config.ts` and `src/components/ui` when extending the UI.
+
 ## Trend continuation playbook
 
 Use this quick-reference checklist to execute a trend continuation strategy the day after a confirmed trend day:

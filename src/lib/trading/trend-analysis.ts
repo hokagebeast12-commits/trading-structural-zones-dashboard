@@ -1,25 +1,104 @@
-import { CONFIG, type MacroTrendDiagnostics, type OhlcBar } from './types';
+import { CONFIG, type MacroTrendDiagnostics, type OhlcBar } from "./types";
 
 export type MacroTrend = "Bull" | "Bear" | "Neutral";
 export type TrendDayDirection = "Bull" | "Bear" | "Neutral";
 export type Trend = MacroTrend;
 
 export type TrendAlignment =
-  | "AlignedLong"   // Macro Bull + Trend day Bull
-  | "AlignedShort"  // Macro Bear + Trend day Bear
-  | "CounterLong"   // Macro Bear + Trend day Bull
-  | "CounterShort"  // Macro Bull + Trend day Bear
-  | "Neutral";      // any case involving Neutral
+  | "AlignedLong" // Macro Bull + Trend day Bull
+  | "AlignedShort" // Macro Bear + Trend day Bear
+  | "CounterLong" // Macro Bear + Trend day Bull
+  | "CounterShort" // Macro Bull + Trend day Bear
+  | "Neutral"; // any case involving Neutral
 
 export type Location = "Discount" | "Mid" | "Premium";
 
 export interface TrendAnalysis {
-  macroTrend: MacroTrend;
-  macroTrendDiagnostics: MacroTrendDiagnostics;
-  trendDay: TrendDayDirection;
-  alignment: TrendAlignment;
+  trend: Trend; // macro regime for backwards compatibility
   location: Location;
   atr20: number;
+  macroTrend: Trend;
+  latestTrendDay: Trend;
+  /** Alias for latestTrendDay to keep existing consumers working */
+  trendDay?: Trend;
+  macroTrendScore: number;
+  alignment: TrendAlignment;
+  macroTrendDiagnostics?: MacroTrendDiagnostics;
+}
+
+function classifyTrendDay(prevBar: OhlcBar, currentBar: OhlcBar): Trend {
+  const brokeHigh = currentBar.high > prevBar.high;
+  const brokeLow = currentBar.low < prevBar.low;
+
+  const closedAbovePrevHigh = currentBar.close > prevBar.high;
+  const closedBelowPrevLow = currentBar.close < prevBar.low;
+
+  if (!brokeHigh && !brokeLow) {
+    return "Neutral";
+  } else if (closedAbovePrevHigh && !closedBelowPrevLow) {
+    return "Bull";
+  } else if (closedBelowPrevLow && !closedAbovePrevHigh) {
+    return "Bear";
+  } else {
+    // stop hunt / fakeout – treat as range for regime purposes
+    return "Neutral";
+  }
+}
+
+export interface MacroTrendResult {
+  macroTrend: Trend; // Bull / Bear / Neutral
+  latestTrendDay: Trend; // latest daily breakout classification
+  rollingScore: number; // average score over the window
+}
+
+export function computeMacroTrend(
+  bars: OhlcBar[],
+  options?: {
+    window?: number;
+    bullThreshold?: number;
+    bearThreshold?: number;
+  },
+): MacroTrendResult {
+  const windowSize = options?.window ?? CONFIG.macro_trend_window;
+  const bullThreshold = options?.bullThreshold ?? CONFIG.macro_trend_bull_threshold;
+  const bearThreshold = options?.bearThreshold ?? CONFIG.macro_trend_bear_threshold;
+
+  if (bars.length < 2) {
+    return {
+      macroTrend: "Neutral",
+      latestTrendDay: "Neutral",
+      rollingScore: 0,
+    };
+  }
+
+  const trendDays: Trend[] = [];
+  const scores: number[] = [];
+
+  for (let i = 1; i < bars.length; i++) {
+    const prev = bars[i - 1];
+    const curr = bars[i];
+
+    const dayTrend = classifyTrendDay(prev, curr);
+    trendDays.push(dayTrend);
+
+    const score = dayTrend === "Bull" ? 1 : dayTrend === "Bear" ? -1 : 0;
+    scores.push(score);
+  }
+
+  const latestTrendDay = trendDays[trendDays.length - 1] ?? "Neutral";
+
+  const windowScores = scores.slice(-windowSize);
+  const total = windowScores.reduce((sum, v) => sum + v, 0);
+  const rollingScore = windowScores.length > 0 ? total / windowScores.length : 0;
+
+  let macroTrend: Trend = "Neutral";
+  if (rollingScore >= bullThreshold) {
+    macroTrend = "Bull";
+  } else if (rollingScore <= bearThreshold) {
+    macroTrend = "Bear";
+  }
+
+  return { macroTrend, latestTrendDay, rollingScore };
 }
 
 export function classifyTrend(
@@ -33,31 +112,34 @@ export function classifyTrend(
   const lookbackDays = options?.lookbackDays ?? CONFIG.lookback_days;
   const atrWindow = options?.atrWindow ?? 20;
   const trendLookback = options?.trendLookback ?? CONFIG.trend_lookback;
+  const macroWindow = CONFIG.macro_trend_window;
 
-  // Need at least two sessions to detect a break of the prior day's extremes
   if (bars.length < 2) {
     return {
+      trend: "Neutral",
+      location: "Mid",
+      atr20: 0,
       macroTrend: "Neutral",
+      latestTrendDay: "Neutral",
+      trendDay: "Neutral",
+      macroTrendScore: 0,
+      alignment: "Neutral",
       macroTrendDiagnostics: {
         bullDays: 0,
         bearDays: 0,
         totalTrendDays: 0,
         dominanceThreshold: 0,
-        lookback: trendLookback,
+        lookback: macroWindow,
       },
-      trendDay: "Neutral",
-      alignment: "Neutral",
-      location: "Mid",
-      atr20: 0,
     };
   }
 
   // Use recent bars for range/location calculations
   const lookbackBars = bars.slice(-lookbackDays);
 
-  // Calculate position in range
-  const highs = lookbackBars.map(b => b.high);
-  const lows = lookbackBars.map(b => b.low);
+  // Calculate position in range (unchanged)
+  const highs = lookbackBars.map((b) => b.high);
+  const lows = lookbackBars.map((b) => b.low);
   const maxHigh = Math.max(...highs);
   const minLow = Math.min(...lows);
   const lastClose = bars[bars.length - 1].close;
@@ -67,137 +149,88 @@ export function classifyTrend(
     pos = (lastClose - minLow) / (maxHigh - minLow);
   }
 
-  const trendDay = computeLatestTrendDay(bars, trendLookback);
-  const { trend: macroTrend, diagnostics: macroTrendDiagnostics } =
-    computeMacroTrend(bars, trendLookback);
-  const alignment = computeTrendAlignment(macroTrend, trendDay);
+  const { macroTrend, latestTrendDay, rollingScore } = computeMacroTrend(bars);
 
-  // Determine location
+  const alignment = computeTrendAlignment(macroTrend, latestTrendDay);
+
+  // Determine location (unchanged)
   let location: Location = "Mid";
-  if (pos < 1/3) {
+  if (pos < 1 / 3) {
     location = "Discount";
-  } else if (pos > 2/3) {
+  } else if (pos > 2 / 3) {
     location = "Premium";
   }
-  
+
   // Calculate ATR (windowed average true range)
   const atrBars = bars.slice(-atrWindow);
   let atrSum = 0;
   for (let i = 1; i < atrBars.length; i++) {
     const high = atrBars[i].high;
     const low = atrBars[i].low;
-    const prevClose = atrBars[i-1].close;
-    const tr = Math.max(
-      high - low,
-      Math.abs(high - prevClose),
-      Math.abs(low - prevClose)
-    );
+    const prevClose = atrBars[i - 1].close;
+    const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
     atrSum += tr;
   }
   const atrValue = atrBars.length > 1 ? atrSum / (atrBars.length - 1) : 0;
 
-  return {
-    macroTrend,
-    macroTrendDiagnostics,
-    trendDay,
-    alignment,
-    location,
-    atr20: atrValue,
-  };
-}
+  const trend = macroTrend; // macro regime retained for backwards compatibility
 
-function classifyTrendDayForPair(prev: OhlcBar, cur: OhlcBar): TrendDayDirection {
-  const brokeHigh = cur.high > prev.high;
-  const brokeLow  = cur.low  < prev.low;
-
-  const closedAbovePrevHigh = cur.close > prev.high;
-  const closedBelowPrevLow  = cur.close < prev.low;
-
-  // No violation of yesterday's high or low → not a trend day
-  if (!brokeHigh && !brokeLow) {
-    return "Neutral";
-  }
-
-  // Legit bullish trend day:
-  // broke yesterday's high and CLOSED above it (not just a wick),
-  // and did not close below the previous low.
-  if (closedAbovePrevHigh && !closedBelowPrevLow) {
-    return "Bull";
-  }
-
-  // Legit bearish trend day:
-  // broke yesterday's low and CLOSED below it,
-  // and did not close above the previous high.
-  if (closedBelowPrevLow && !closedAbovePrevHigh) {
-    return "Bear";
-  }
-
-  // Price violated the level but closed back inside yesterday's range
-  // → treat as stop hunt / fakeout, not a trend day.
-  return "Neutral";
-}
-
-function computeLatestTrendDay(
-  bars: OhlcBar[],
-  trendLookback: number,
-): TrendDayDirection {
-  const trendBars = bars.slice(-Math.max(trendLookback + 1, 2));
-  let latest: TrendDayDirection = "Neutral";
-
-  for (let i = 1; i < trendBars.length; i++) {
-    const prev = trendBars[i - 1];
-    const cur  = trendBars[i];
-    const td = classifyTrendDayForPair(prev, cur);
-    if (td !== "Neutral") {
-      latest = td; // last non-neutral wins
-    }
-  }
-
-  return latest;
-}
-
-function computeMacroTrend(
-  bars: OhlcBar[],
-  trendLookback: number,
-): { trend: MacroTrend; diagnostics: MacroTrendDiagnostics } {
-  const trendBars = bars.slice(-Math.max(trendLookback + 1, 2));
-
-  let bullCount = 0;
-  let bearCount = 0;
-
-  for (let i = 1; i < trendBars.length; i++) {
-    const prev = trendBars[i - 1];
-    const cur  = trendBars[i];
-    const td = classifyTrendDayForPair(prev, cur);
-
-    if (td === "Bull") bullCount++;
-    else if (td === "Bear") bearCount++;
-  }
-
-  const total = bullCount + bearCount;
-  // 60% threshold to avoid flipping on noise
-  const threshold = total === 0 ? 0 : Math.ceil(total * 0.6);
-
-  let trend: MacroTrend = "Neutral";
-  if (bullCount >= threshold && bullCount > bearCount) trend = "Bull";
-  else if (bearCount >= threshold && bearCount > bullCount) trend = "Bear";
+  const macroTrendDiagnostics = computeMacroTrendDiagnostics(bars, macroWindow);
 
   return {
     trend,
-    diagnostics: {
-      bullDays: bullCount,
-      bearDays: bearCount,
-      totalTrendDays: total,
-      dominanceThreshold: threshold,
-      lookback: trendLookback,
-    },
+    location,
+    atr20: atrValue,
+    macroTrend,
+    latestTrendDay,
+    trendDay: latestTrendDay,
+    macroTrendScore: rollingScore,
+    alignment,
+    macroTrendDiagnostics,
   };
 }
 
-function computeTrendAlignment(
-  macro: MacroTrend,
-  trendDay: TrendDayDirection,
-): TrendAlignment {
+function computeMacroTrendDiagnostics(
+  bars: OhlcBar[],
+  windowSize: number,
+): MacroTrendDiagnostics {
+  if (bars.length < 2) {
+    return {
+      bullDays: 0,
+      bearDays: 0,
+      totalTrendDays: 0,
+      dominanceThreshold: 0,
+      lookback: windowSize,
+    };
+  }
+
+  let bullDays = 0;
+  let bearDays = 0;
+
+  const startIndex = Math.max(1, bars.length - windowSize);
+  for (let i = startIndex; i < bars.length; i++) {
+    const prev = bars[i - 1];
+    const curr = bars[i];
+    const dayTrend = classifyTrendDay(prev, curr);
+    if (dayTrend === "Bull") bullDays++;
+    else if (dayTrend === "Bear") bearDays++;
+  }
+
+  const totalTrendDays = bullDays + bearDays;
+  const dominanceThreshold = Math.ceil(
+    windowSize * Math.max(CONFIG.macro_trend_bull_threshold, Math.abs(CONFIG.macro_trend_bear_threshold)),
+  );
+
+  return {
+    bullDays,
+    bearDays,
+    totalTrendDays,
+    dominanceThreshold,
+    lookback: windowSize,
+  };
+}
+
+function computeTrendAlignment(macro: MacroTrend, trendDay: TrendDayDirection): TrendAlignment {
   if (macro === "Bull" && trendDay === "Bull") return "AlignedLong";
   if (macro === "Bear" && trendDay === "Bear") return "AlignedShort";
 

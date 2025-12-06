@@ -3,17 +3,20 @@
 import * as React from "react";
 import type { PullbackSnapshotCard } from "@/types/trading";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "./section-header";
 
 interface PullbackDepthBlockProps {
   pullback: PullbackSnapshotCard;
   macroTrendLabel: string;
   latestTrendDayLabel: string;
+  showDetails?: boolean;
 }
 
 export function PullbackDepthBlock({
   pullback,
   macroTrendLabel,
   latestTrendDayLabel,
+  showDetails = true,
 }: PullbackDepthBlockProps) {
   const depth =
     pullback.depthIntoPrevPct != null &&
@@ -34,7 +37,6 @@ export function PullbackDepthBlock({
       ? pullback.typicalMedianPct * 100
       : null;
 
-  const clampedCurrentPct = clampPct(depthPct);
   const clampedMeanPct = clampPct(meanDepthPct);
 
   const deviation =
@@ -77,26 +79,16 @@ export function PullbackDepthBlock({
     statusText = deviationLabel;
   }
 
+  const tooltipText =
+    "Depth shows how far the current price has pulled back into yesterday’s daily candle, as a percentage of yesterday’s full high–low range. 0% = no retrace, 100% = a full retrace to the opposite extreme, and values above 100% mean price has moved beyond yesterday’s range. Typical stats come from past days with the same macro trend and trend-day type.";
+
   return (
     <div className="space-y-2">
-      {/* Title row */}
-      <div className="flex items-baseline justify-between gap-2">
-        <div>
-          <p className="text-[11px] uppercase tracking-wide text-slate-400">
-            Pullback depth
-          </p>
-          <p className="text-sm font-medium text-slate-50">
-            {depthPct != null ? depthPct.toFixed(1) : "-"}%
-            <span className="ml-1 text-[11px] text-slate-400">
-              ({pullback.bucket ?? "N/A"})
-            </span>
-          </p>
-          <p className="text-xs text-slate-400">{scenarioLabel}</p>
-        </div>
-
+      <div className="flex items-start justify-between gap-3">
+        <SectionHeader title="Pullback depth" tooltip={tooltipText} />
         <p
           className={cn(
-            "text-[11px] font-medium",
+            "text-[11px] font-medium text-right",
             deviation == null && "text-slate-400",
             deviation != null && Math.abs(deviation) < 0.1 && "text-emerald-400",
             deviation != null && deviation > 0.1 && "text-amber-300",
@@ -107,66 +99,75 @@ export function PullbackDepthBlock({
         </p>
       </div>
 
-      {/* Visual bar: 0–100% with current + mean markers */}
-      <div className="space-y-1">
-        <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-800">
-          {/* typical range band (±10% around mean) */}
-          {meanDepthPct != null ? (
-            <div
-              className="absolute inset-y-0 bg-slate-700/80"
-              style={{
-                left: `${Math.max(clampedMeanPct - 10, 0)}%`,
-                width: `${
-                  Math.min(clampedMeanPct + 10, 100) -
-                  Math.max(clampedMeanPct - 10, 0)
-                }%`,
-              }}
-            />
-          ) : null}
-          {/* current depth marker */}
-          {hasDepth ? (
-            <div
-              className="absolute top-1/2 h-3 w-3 -translate-y-1/2 -translate-x-1/2 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.35)]"
-              style={{ left: `${clampedDepth * 100}%` }}
-            />
-          ) : null}
-          {/* mean marker */}
-          {Number.isFinite(meanDepthPct) ? (
-            <div
-              className="absolute top-0 bottom-0 w-[2px] bg-slate-200/90"
-              style={{ left: `${clampedMeanPct}%` }}
-            />
-          ) : null}
-        </div>
-
-        <div className="flex justify-between text-[10px] text-slate-500">
-          <span>0%</span>
-          <span>50%</span>
-          <span>100%</span>
-        </div>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm font-medium text-slate-50">
+          {depthPct != null ? depthPct.toFixed(1) : "-"}%
+          <span className="ml-1 text-[11px] text-slate-400">
+            ({pullback.bucket ?? "N/A"})
+          </span>
+        </p>
+        {showDetails ? (
+          <p className="text-xs text-slate-400">{scenarioLabel}</p>
+        ) : null}
       </div>
 
-      {/* Statistical context */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
-        <span>
-          Typical mean:{" "}
-          <span className="font-medium text-slate-100">
-            {meanDepthPct != null ? meanDepthPct.toFixed(1) : "-"}%
-          </span>
-        </span>
-        <span>
-          Median:{" "}
-          <span className="font-medium text-slate-100">
-            {medianDepthPct != null ? medianDepthPct.toFixed(1) : "-"}%
-          </span>
-        </span>
-        <span className="text-slate-500">
-          {lookbackLabel} · {pullback.sampleCount} samples
-        </span>
-        <span className="text-slate-500">
-          Depth shows how far the current price has pulled back into yesterday’s daily candle, as a percentage of yesterday’s full high–low range. 0% = no retrace, 100% = a full retrace to the opposite extreme, and values above 100% mean price has moved beyond yesterday’s range. Typical stats come from past days with the same macro trend and trend-day type.
-        </span>
-      </div>
+      {showDetails ? (
+        <>
+          <div className="space-y-1">
+            <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-800">
+              {/* typical range band (±10% around mean) */}
+              {meanDepthPct != null ? (
+                <div
+                  className="absolute inset-y-0 bg-slate-700/80"
+                  style={{
+                    left: `${Math.max(clampedMeanPct - 10, 0)}%`,
+                    width: `${
+                      Math.min(clampedMeanPct + 10, 100) -
+                      Math.max(clampedMeanPct - 10, 0)
+                    }%`,
+                  }}
+                />
+              ) : null}
+              {/* current depth marker */}
+              {hasDepth ? (
+                <div
+                  className="absolute top-1/2 h-3 w-3 -translate-y-1/2 -translate-x-1/2 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.35)]"
+                  style={{ left: `${clampedDepth * 100}%` }}
+                />
+              ) : null}
+              {/* mean marker */}
+              {Number.isFinite(meanDepthPct) ? (
+                <div
+                  className="absolute top-0 bottom-0 w-[2px] bg-slate-200/90"
+                  style={{ left: `${clampedMeanPct}%` }}
+                />
+              ) : null}
+            </div>
+
+            <div className="flex justify-between text-[10px] text-slate-500">
+              <span>0%</span>
+              <span>50%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+            <span>
+              Typical mean: <span className="font-medium text-slate-100">
+                {meanDepthPct != null ? meanDepthPct.toFixed(1) : "-"}%
+              </span>
+            </span>
+            <span>
+              Median: <span className="font-medium text-slate-100">
+                {medianDepthPct != null ? medianDepthPct.toFixed(1) : "-"}%
+              </span>
+            </span>
+            <span className="text-slate-500">
+              {lookbackLabel} · {pullback.sampleCount} samples
+            </span>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

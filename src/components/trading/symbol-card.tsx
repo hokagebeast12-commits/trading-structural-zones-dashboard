@@ -5,9 +5,12 @@ import type { SymbolCardProps } from "@/types/trading";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PullbackDepthBlock } from "./pullback-depth-block";
 import { CandidateStatusBlock } from "./candidate-status-block";
+import { SectionHeader } from "./section-header";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 const TREND_LABEL: Record<SymbolCardProps["macroTrend"], string> = {
   bull: "Bull",
@@ -78,11 +81,18 @@ export function SymbolCard(props: SymbolCardProps) {
     candidateDiagnostics,
     priceFormatter,
     children,
+    defaultCollapsed,
   } = props;
 
   const formatPrice = React.useMemo(() => {
     return priceFormatter ?? ((value: number) => value.toFixed(2));
   }, [priceFormatter]);
+
+  const [collapsed, setCollapsed] = React.useState(defaultCollapsed ?? false);
+
+  React.useEffect(() => {
+    setCollapsed(defaultCollapsed ?? false);
+  }, [defaultCollapsed]);
 
   const isCandidate = candidateStatus === "long" || candidateStatus === "short";
   const macroTrendLabel = macroTrend === "bull" ? "Bull" : macroTrend === "bear" ? "Bear" : "Range";
@@ -131,6 +141,64 @@ export function SymbolCard(props: SymbolCardProps) {
     return "Price touched the sweetspot band earlier today and is currently outside it.";
   })();
 
+  const sweetspotTooltip = sweetspotDescription;
+
+  const nearestZoneSection = (
+    <section className="flex items-center justify-between rounded-xl bg-slate-900/70 px-3 py-2">
+      <div className="space-y-1">
+        <p className="text-[11px] uppercase tracking-wide text-slate-400">Nearest zone</p>
+        <div className="flex items-center gap-2">
+          <Badge className={cn("text-[10px] font-semibold", LOCATION_STYLE[nearestZone.label])}>
+            {nearestZone.label}
+          </Badge>
+          <p className="text-xs text-slate-300">
+            {formatPrice(nearestZone.distancePoints)} pts · {nearestZone.distancePercent.toFixed(2)}%
+          </p>
+        </div>
+      </div>
+
+      <div className="relative h-2 w-32 overflow-hidden rounded-full bg-slate-800">
+        <div
+          className="absolute inset-y-0 left-0 bg-slate-500/60"
+          style={{ width: `${Math.min(Math.max(nearestZone.distancePercent, 0), 100)}%` }}
+        />
+      </div>
+    </section>
+  );
+
+  const sweetspotSection = (showDetails: boolean) => (
+    <section className="flex items-center justify-between rounded-xl bg-slate-900/70 px-3 py-2">
+      <div className="space-y-1">
+        <SectionHeader title="Sweetspot (today)" tooltip={sweetspotTooltip} />
+        <p className="text-sm font-semibold text-slate-100">{sweetspotLabel}</p>
+        {showDetails ? (
+          <p className="text-[11px] text-slate-400">{sweetspotDescription}</p>
+        ) : null}
+      </div>
+
+      <Badge
+        variant="outline"
+        className={cn(
+          "text-[10px] font-semibold uppercase tracking-wide",
+          sweetspotState ? SWEETSPOT_STYLE[sweetspotState] : "border-slate-700 text-slate-300",
+        )}
+      >
+        {sweetspotLabel}
+      </Badge>
+    </section>
+  );
+
+  const pullbackSection = (showDetails: boolean) => (
+    <section className="rounded-xl bg-slate-900/70 px-3 py-2">
+      <PullbackDepthBlock
+        pullback={pullback}
+        macroTrendLabel={macroTrendLabel}
+        latestTrendDayLabel={latestTrendDayLabel}
+        showDetails={showDetails}
+      />
+    </section>
+  );
+
   return (
     <Card
       className={cn(
@@ -139,7 +207,6 @@ export function SymbolCard(props: SymbolCardProps) {
         isCandidate && "border-emerald-500/60",
       )}
     >
-      {/* 1. Context row: symbol, ATR, trend, status */}
       <CardHeader className="flex flex-row items-start justify-between space-y-0 p-0">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -224,110 +291,83 @@ export function SymbolCard(props: SymbolCardProps) {
           </p>
         </div>
 
-        <div className="flex flex-col items-end gap-1 text-right">
-          <p className="text-[11px] uppercase tracking-wide text-slate-400">Live price</p>
-          <p className="text-xl font-semibold tabular-nums">{formatPrice(livePrice)}</p>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Badge
-              variant="outline"
-              className={cn(
-                "text-[10px] uppercase tracking-wide",
-                livePriceSource === "manual" && "border-sky-500/60 text-sky-200",
-                livePriceSource === "fallback" && "border-amber-500/60 text-amber-200",
-                livePriceSource === "live" && "border-emerald-500/60 text-emerald-200",
-              )}
-            >
-              {livePriceSource} price
-            </Badge>
+        <div className="flex flex-col items-end gap-2 text-right">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-full border border-slate-800 bg-slate-900/60 text-slate-200 hover:border-slate-700"
+            onClick={() => setCollapsed((prev) => !prev)}
+            aria-label={collapsed ? "Expand card" : "Collapse card"}
+          >
+            {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </Button>
+          <div className="flex flex-col items-end gap-1 text-right">
+            <p className="text-[11px] uppercase tracking-wide text-slate-400">Live price</p>
+            <p className="text-xl font-semibold tabular-nums">{formatPrice(livePrice)}</p>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] uppercase tracking-wide",
+                  livePriceSource === "manual" && "border-sky-500/60 text-sky-200",
+                  livePriceSource === "fallback" && "border-amber-500/60 text-amber-200",
+                  livePriceSource === "live" && "border-emerald-500/60 text-emerald-200",
+                )}
+              >
+                {livePriceSource} price
+              </Badge>
+            </div>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="flex flex-1 flex-col gap-4 p-0">
-        {/* 2. Location row: nearest zone */}
-        <section className="flex items-center justify-between rounded-xl bg-slate-900/70 px-3 py-2">
-          <div className="space-y-1">
-            <p className="text-[11px] uppercase tracking-wide text-slate-400">Nearest zone</p>
-            <div className="flex items-center gap-2">
-              <Badge className={cn("text-[10px] font-semibold", LOCATION_STYLE[nearestZone.label])}>
-                {nearestZone.label}
-              </Badge>
-              <p className="text-xs text-slate-300">
-                {formatPrice(nearestZone.distancePoints)} pts · {nearestZone.distancePercent.toFixed(2)}%
+        {collapsed ? (
+          <>
+            {nearestZoneSection}
+            {pullbackSection(false)}
+            {sweetspotSection(false)}
+            {candidateStatus === "none" ? (
+              <p className="text-xs text-slate-400">No trade candidate for this symbol.</p>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {nearestZoneSection}
+            {sweetspotSection(true)}
+            {pullbackSection(true)}
+
+            <section className="mt-auto flex items-center justify-between rounded-xl bg-slate-900/70 px-3 py-2">
+              <div>
+                <SectionHeader title="Fallback closing price" />
+                <p className="text-sm font-medium tabular-nums">{formatPrice(fallbackClose.price)}</p>
+                <p className="text-[11px] text-slate-400">{fallbackClose.timeframeLabel}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[11px] uppercase tracking-wide text-slate-400">Close mode</span>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[10px] uppercase tracking-wide",
+                      closeMode === "manual"
+                        ? "border-sky-500/60 text-sky-200"
+                        : "border-emerald-500/60 text-emerald-200",
+                    )}
+                  >
+                    {closeMode === "manual" ? "Manual close" : "Auto close"}
+                  </Badge>
+                </div>
+              </div>
+
+              <p className="max-w-[180px] text-right text-[11px] text-slate-400">
+                Used if no intraday candidate is available for this symbol.
               </p>
-            </div>
-          </div>
+            </section>
 
-          <div className="relative h-2 w-32 overflow-hidden rounded-full bg-slate-800">
-            <div
-              className="absolute inset-y-0 left-0 bg-slate-500/60"
-              style={{ width: `${Math.min(Math.max(nearestZone.distancePercent, 0), 100)}%` }}
-            />
-          </div>
-        </section>
+            <CandidateStatusBlock status={candidateStatus} diagnostics={candidateDiagnostics} />
 
-        {/* Sweetspot state */}
-        <section className="flex items-center justify-between rounded-xl bg-slate-900/70 px-3 py-2">
-          <div className="space-y-1">
-            <p className="text-[11px] uppercase tracking-wide text-slate-400">Sweetspot (today)</p>
-            <p className="text-sm font-semibold text-slate-100">{sweetspotLabel}</p>
-            <p className="text-[11px] text-slate-400">{sweetspotDescription}</p>
-          </div>
-
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-[10px] font-semibold uppercase tracking-wide",
-              sweetspotState ? SWEETSPOT_STYLE[sweetspotState] : "border-slate-700 text-slate-300",
-            )}
-          >
-            {sweetspotLabel}
-          </Badge>
-        </section>
-
-        {/* 3. Pullback row: dedicated component */}
-        <section className="rounded-xl bg-slate-900/70 px-3 py-2">
-          <PullbackDepthBlock
-            pullback={pullback}
-            macroTrendLabel={macroTrendLabel}
-            latestTrendDayLabel={latestTrendDayLabel}
-          />
-        </section>
-
-        {/* 4. Exit / fallback row */}
-        <section className="mt-auto flex items-center justify-between rounded-xl bg-slate-900/70 px-3 py-2">
-          <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-400">
-              Fallback closing price
-            </p>
-            <p className="text-sm font-medium tabular-nums">{formatPrice(fallbackClose.price)}</p>
-            <p className="text-[11px] text-slate-400">{fallbackClose.timeframeLabel}</p>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="text-[11px] uppercase tracking-wide text-slate-400">
-                Close mode
-              </span>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "text-[10px] uppercase tracking-wide",
-                  closeMode === "manual"
-                    ? "border-sky-500/60 text-sky-200"
-                    : "border-emerald-500/60 text-emerald-200",
-                )}
-              >
-                {closeMode === "manual" ? "Manual close" : "Auto close"}
-              </Badge>
-            </div>
-          </div>
-
-          <p className="max-w-[180px] text-right text-[11px] text-slate-400">
-            Used if no intraday candidate is available for this symbol.
-          </p>
-        </section>
-
-        <CandidateStatusBlock status={candidateStatus} diagnostics={candidateDiagnostics} />
-
-        {children}
+            {children}
+          </>
+        )}
       </CardContent>
     </Card>
   );

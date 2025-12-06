@@ -5,11 +5,11 @@ import type { SymbolCardProps } from "@/types/trading";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PullbackDepthBlock } from "./pullback-depth-block";
 import { CandidateStatusBlock } from "./candidate-status-block";
 import { SectionHeader } from "./section-header";
+import { SweetspotBlock } from "./sweetspot-block";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 const TREND_LABEL: Record<SymbolCardProps["macroTrend"], string> = {
@@ -50,18 +50,6 @@ const MACRO_TREND_BADGE: Record<SymbolCardProps["macroTrend"], string> = {
   range: "border-slate-600/70 bg-slate-800/50 text-slate-200",
 };
 
-const SWEETSPOT_LABEL: Record<NonNullable<SymbolCardProps["sweetspotState"]>, string> = {
-  not_touched: "Not touched",
-  currently_in: "In sweetspot",
-  touched_and_rejected: "Rejected from sweetspot",
-};
-
-const SWEETSPOT_STYLE: Record<NonNullable<SymbolCardProps["sweetspotState"]>, string> = {
-  not_touched: "border-slate-600 text-slate-200",
-  currently_in: "border-emerald-500/70 text-emerald-200",
-  touched_and_rejected: "border-amber-500/70 text-amber-200",
-};
-
 export function SymbolCard(props: SymbolCardProps) {
   const {
     symbol,
@@ -88,21 +76,14 @@ export function SymbolCard(props: SymbolCardProps) {
     return priceFormatter ?? ((value: number) => value.toFixed(2));
   }, [priceFormatter]);
 
-  const [collapsed, setCollapsed] = React.useState(defaultCollapsed ?? false);
+  const [collapsed, setCollapsed] = React.useState(defaultCollapsed ?? true);
 
   React.useEffect(() => {
-    setCollapsed(defaultCollapsed ?? false);
+    setCollapsed(defaultCollapsed ?? true);
   }, [defaultCollapsed]);
 
   const isCandidate = candidateStatus === "long" || candidateStatus === "short";
   const macroTrendLabel = macroTrend === "bull" ? "Bull" : macroTrend === "bear" ? "Bear" : "Range";
-  const latestTrendDayLabel = `${TREND_LABEL[trendDay]}${
-    alignment === "counterLong" || alignment === "counterShort"
-      ? " (counter-trend)"
-      : alignment === "alignedLong" || alignment === "alignedShort"
-        ? " (aligned)"
-        : ""
-  }`;
   const macroDiagnostics = props.macroTrendDiagnostics;
   const bullDays = macroDiagnostics?.bullDays ?? 0;
   const bearDays = macroDiagnostics?.bearDays ?? 0;
@@ -125,66 +106,19 @@ export function SymbolCard(props: SymbolCardProps) {
         ? "destructive"
         : "outline";
 
-  const sweetspotLabel = sweetspotState
-    ? SWEETSPOT_LABEL[sweetspotState]
-    : "Not available";
-  const sweetspotDescription = (() => {
-    if (!sweetspotState) {
-      return "Sweetspot zone not configured for this symbol.";
-    }
-    if (sweetspotState === "not_touched") {
-      return "Today's D1 range has not yet reached the sweetspot band.";
-    }
-    if (sweetspotState === "currently_in") {
-      return "Today's D1 price action is trading inside the sweetspot band.";
-    }
-    return "Price touched the sweetspot band earlier today and is currently outside it.";
-  })();
-
-  const sweetspotTooltip = sweetspotDescription;
-
   const nearestZoneSection = (
-    <section className="flex items-center justify-between rounded-xl bg-slate-900/70 px-3 py-2">
-      <div className="space-y-1">
-        <p className="text-[11px] uppercase tracking-wide text-slate-400">Nearest zone</p>
+    <section className="rounded-xl bg-slate-900/70 px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
+          <span className="text-[11px] uppercase tracking-wide text-slate-400">Nearest zone</span>
           <Badge className={cn("text-[10px] font-semibold", LOCATION_STYLE[nearestZone.label])}>
             {nearestZone.label}
           </Badge>
-          <p className="text-xs text-slate-300">
-            {formatPrice(nearestZone.distancePoints)} pts · {nearestZone.distancePercent.toFixed(2)}%
-          </p>
         </div>
+        <span className="text-xs text-slate-300">
+          {formatPrice(nearestZone.distancePoints)} pts · {nearestZone.distancePercent.toFixed(2)}%
+        </span>
       </div>
-
-      <div className="relative h-2 w-32 overflow-hidden rounded-full bg-slate-800">
-        <div
-          className="absolute inset-y-0 left-0 bg-slate-500/60"
-          style={{ width: `${Math.min(Math.max(nearestZone.distancePercent, 0), 100)}%` }}
-        />
-      </div>
-    </section>
-  );
-
-  const sweetspotSection = (showDetails: boolean) => (
-    <section className="flex items-center justify-between rounded-xl bg-slate-900/70 px-3 py-2">
-      <div className="space-y-1">
-        <SectionHeader title="Sweetspot (today)" tooltip={sweetspotTooltip} />
-        <p className="text-sm font-semibold text-slate-100">{sweetspotLabel}</p>
-        {showDetails ? (
-          <p className="text-[11px] text-slate-400">{sweetspotDescription}</p>
-        ) : null}
-      </div>
-
-      <Badge
-        variant="outline"
-        className={cn(
-          "text-[10px] font-semibold uppercase tracking-wide",
-          sweetspotState ? SWEETSPOT_STYLE[sweetspotState] : "border-slate-700 text-slate-300",
-        )}
-      >
-        {sweetspotLabel}
-      </Badge>
     </section>
   );
 
@@ -192,10 +126,14 @@ export function SymbolCard(props: SymbolCardProps) {
     <section className="rounded-xl bg-slate-900/70 px-3 py-2">
       <PullbackDepthBlock
         pullback={pullback}
-        macroTrendLabel={macroTrendLabel}
-        latestTrendDayLabel={latestTrendDayLabel}
         showDetails={showDetails}
       />
+    </section>
+  );
+
+  const sweetspotSection = () => (
+    <section className="rounded-xl bg-slate-900/70 px-3 py-2">
+      <SweetspotBlock sweetspotState={sweetspotState} />
     </section>
   );
 
@@ -292,15 +230,14 @@ export function SymbolCard(props: SymbolCardProps) {
         </div>
 
         <div className="flex flex-col items-end gap-2 text-right">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 rounded-full border border-slate-800 bg-slate-900/60 text-slate-200 hover:border-slate-700"
+          <button
+            type="button"
             onClick={() => setCollapsed((prev) => !prev)}
-            aria-label={collapsed ? "Expand card" : "Collapse card"}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-700/60 text-slate-400 hover:border-slate-400 hover:text-slate-100"
           >
-            {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-          </Button>
+            {collapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+            <span className="sr-only">{collapsed ? "Expand details" : "Collapse details"}</span>
+          </button>
           <div className="flex flex-col items-end gap-1 text-right">
             <p className="text-[11px] uppercase tracking-wide text-slate-400">Live price</p>
             <p className="text-xl font-semibold tabular-nums">{formatPrice(livePrice)}</p>
@@ -326,7 +263,7 @@ export function SymbolCard(props: SymbolCardProps) {
           <>
             {nearestZoneSection}
             {pullbackSection(false)}
-            {sweetspotSection(false)}
+            {sweetspotSection()}
             {candidateStatus === "none" ? (
               <p className="text-xs text-slate-400">No trade candidate for this symbol.</p>
             ) : null}
@@ -334,7 +271,7 @@ export function SymbolCard(props: SymbolCardProps) {
         ) : (
           <>
             {nearestZoneSection}
-            {sweetspotSection(true)}
+            {sweetspotSection()}
             {pullbackSection(true)}
 
             <section className="mt-auto flex items-center justify-between rounded-xl bg-slate-900/70 px-3 py-2">

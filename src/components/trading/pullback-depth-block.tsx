@@ -7,15 +7,11 @@ import { SectionHeader } from "./section-header";
 
 interface PullbackDepthBlockProps {
   pullback: PullbackSnapshotCard;
-  macroTrendLabel: string;
-  latestTrendDayLabel: string;
   showDetails?: boolean;
 }
 
 export function PullbackDepthBlock({
   pullback,
-  macroTrendLabel,
-  latestTrendDayLabel,
   showDetails = true,
 }: PullbackDepthBlockProps) {
   const depth =
@@ -58,10 +54,6 @@ export function PullbackDepthBlock({
   const lookbackLabel = pullback.lookbackDays
     ? `Last ${pullback.lookbackDays}d`
     : "No lookback";
-  const macroSuffix = macroTrendLabel === "Range" ? " (neutral bias)" : "";
-  const scenarioLabel = pullback.scenario
-    ? `Macro trend: ${macroTrendLabel}${macroSuffix} · Latest trend day: ${latestTrendDayLabel}`
-    : "No scenario context";
 
   const noBenchmarkLabel =
     "No benchmark · Not enough historical pullbacks in similar conditions yet.";
@@ -84,38 +76,29 @@ export function PullbackDepthBlock({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-start justify-between gap-3">
-        <SectionHeader title="Pullback depth" tooltip={tooltipText} />
-        <p
+      <SectionHeader title="Pullback depth" tooltip={tooltipText} />
+
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="text-sm font-semibold text-slate-50">
+          {depthPct != null ? depthPct.toFixed(1) : "-"}%
+          <span className="ml-1 text-[11px] text-slate-400">({pullback.bucket ?? "N/A"})</span>
+        </div>
+        <div
           className={cn(
-            "text-[11px] font-medium text-right",
-            deviation == null && "text-slate-400",
-            deviation != null && Math.abs(deviation) < 0.1 && "text-emerald-400",
-            deviation != null && deviation > 0.1 && "text-amber-300",
-            deviation != null && deviation < -0.1 && "text-sky-300",
+            "text-xs text-right text-slate-300",
+            deviation != null && Math.abs(deviation) < 0.1 && "text-emerald-300",
+            deviation != null && deviation > 0.1 && "text-amber-200",
+            deviation != null && deviation < -0.1 && "text-sky-200",
           )}
         >
           {statusText}
-        </p>
+        </div>
       </div>
 
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-slate-50">
-          {depthPct != null ? depthPct.toFixed(1) : "-"}%
-          <span className="ml-1 text-[11px] text-slate-400">
-            ({pullback.bucket ?? "N/A"})
-          </span>
-        </p>
-        {showDetails ? (
-          <p className="text-xs text-slate-400">{scenarioLabel}</p>
-        ) : null}
-      </div>
-
-      {showDetails ? (
-        <>
+      {showDetails && hasBenchmark ? (
+        <div className="space-y-2">
           <div className="space-y-1">
             <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-800">
-              {/* typical range band (±10% around mean) */}
               {meanDepthPct != null ? (
                 <div
                   className="absolute inset-y-0 bg-slate-700/80"
@@ -128,14 +111,14 @@ export function PullbackDepthBlock({
                   }}
                 />
               ) : null}
-              {/* current depth marker */}
+
               {hasDepth ? (
                 <div
                   className="absolute top-1/2 h-3 w-3 -translate-y-1/2 -translate-x-1/2 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.35)]"
                   style={{ left: `${clampedDepth * 100}%` }}
                 />
               ) : null}
-              {/* mean marker */}
+
               {Number.isFinite(meanDepthPct) ? (
                 <div
                   className="absolute top-0 bottom-0 w-[2px] bg-slate-200/90"
@@ -151,22 +134,18 @@ export function PullbackDepthBlock({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+          <div className="flex items-center justify-between text-[11px] text-slate-400">
             <span>
               Typical mean: <span className="font-medium text-slate-100">
                 {meanDepthPct != null ? meanDepthPct.toFixed(1) : "-"}%
-              </span>
-            </span>
-            <span>
-              Median: <span className="font-medium text-slate-100">
+              </span>{" "}
+              · Median: <span className="font-medium text-slate-100">
                 {medianDepthPct != null ? medianDepthPct.toFixed(1) : "-"}%
               </span>
             </span>
-            <span className="text-slate-500">
-              {lookbackLabel} · {pullback.sampleCount} samples
-            </span>
+            <span className="text-slate-500">{lookbackLabel} · {pullback.sampleCount} samples</span>
           </div>
-        </>
+        </div>
       ) : null}
     </div>
   );

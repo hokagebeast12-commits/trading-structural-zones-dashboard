@@ -6,9 +6,15 @@ import { cn } from "@/lib/utils";
 
 interface PullbackDepthBlockProps {
   pullback: PullbackSnapshotCard;
+  macroTrendLabel: string;
+  latestTrendDayLabel: string;
 }
 
-export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
+export function PullbackDepthBlock({
+  pullback,
+  macroTrendLabel,
+  latestTrendDayLabel,
+}: PullbackDepthBlockProps) {
   const depth =
     pullback.depthIntoPrevPct != null &&
     Number.isFinite(pullback.depthIntoPrevPct)
@@ -48,9 +54,13 @@ export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
   const lookbackLabel = pullback.lookbackDays
     ? `Last ${pullback.lookbackDays}d`
     : "No lookback";
+  const macroSuffix = macroTrendLabel === "Range" ? " (neutral bias)" : "";
   const scenarioLabel = pullback.scenario
-    ? `Macro trend: ${pullback.scenario.macroTrendPrev} · Latest trend day: ${pullback.scenario.trendDayPrev} (${pullback.scenario.alignmentPrev} bias)`
+    ? `Macro trend: ${macroTrendLabel}${macroSuffix} · Latest trend day: ${latestTrendDayLabel}`
     : "No scenario context";
+
+  const noBenchmarkLabel =
+    "No benchmark · Not enough historical pullbacks in similar conditions yet.";
 
   return (
     <div className="space-y-2">
@@ -78,7 +88,7 @@ export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
             deviation != null && deviation < -0.1 && "text-sky-300",
           )}
         >
-          {deviationLabel}
+          {pullback.sampleCount === 0 ? noBenchmarkLabel : deviationLabel}
         </p>
       </div>
 

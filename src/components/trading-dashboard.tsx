@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SymbolCard } from "@/components/trading/symbol-card";
 import { cn } from "@/lib/utils";
 import type {
@@ -162,6 +163,7 @@ export default function TradingDashboard() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("dashboard");
+  const [cardDensity, setCardDensity] = useState<"compact" | "detailed">("compact");
   const [sortKey, setSortKey] = useState<
     "symbol" | "direction" | "rr" | "trend" | "status"
   >("symbol");
@@ -513,6 +515,24 @@ export default function TradingDashboard() {
                 Last scan: {lastScanDate}
               </span>
             )}
+            <ToggleGroup
+              type="single"
+              value={cardDensity}
+              onValueChange={(value) =>
+                setCardDensity((value as "compact" | "detailed") || "compact")
+              }
+              variant="outline"
+              size="sm"
+              aria-label="Card density"
+              className="hidden items-center sm:flex"
+            >
+              <ToggleGroupItem value="compact" className="text-[11px] px-3">
+                Compact
+              </ToggleGroupItem>
+              <ToggleGroupItem value="detailed" className="text-[11px] px-3">
+                Detailed
+              </ToggleGroupItem>
+            </ToggleGroup>
             <Button
               size="sm"
               disabled={loading}
@@ -765,6 +785,7 @@ export default function TradingDashboard() {
                         }}
                         priceFormatter={priceFormatter}
                         candidateDiagnostics={symbolResult.candidateDiagnostics}
+                        defaultCollapsed={cardDensity === "compact"}
                       >
                         {tradesSection}
                       </SymbolCard>

@@ -89,4 +89,5 @@ export interface SymbolCardProps {
   priceFormatter?: (price: number) => string;
   children?: React.ReactNode;
   candidateDiagnostics?: CandidateDiagnostics;
+  defaultCollapsed?: boolean;
 }

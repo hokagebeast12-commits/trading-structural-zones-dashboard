@@ -50,6 +50,8 @@ export function PullbackDepthBlock({
           : "Shallower than typical";
 
   const hasDepth = depth != null;
+  const hasCurrentDepth = Number.isFinite(depthPct);
+  const hasBenchmark = Number.isFinite(meanDepthPct) && pullback.sampleCount > 0;
   const clampedDepth = hasDepth ? Math.max(0, Math.min(depth, 1)) : 0;
   const lookbackLabel = pullback.lookbackDays
     ? `Last ${pullback.lookbackDays}d`
@@ -61,6 +63,19 @@ export function PullbackDepthBlock({
 
   const noBenchmarkLabel =
     "No benchmark · Not enough historical pullbacks in similar conditions yet.";
+
+  let statusText: string;
+
+  if (!hasCurrentDepth && !hasBenchmark) {
+    statusText = noBenchmarkLabel;
+  } else if (!hasCurrentDepth && hasBenchmark) {
+    statusText = `No current depth · Historical benchmark only (${pullback.sampleCount} samples).`;
+  } else if (hasCurrentDepth && !hasBenchmark) {
+    statusText =
+      "No benchmark yet · This is the first pullback in similar conditions.";
+  } else {
+    statusText = deviationLabel;
+  }
 
   return (
     <div className="space-y-2">
@@ -88,7 +103,7 @@ export function PullbackDepthBlock({
             deviation != null && deviation < -0.1 && "text-sky-300",
           )}
         >
-          {pullback.sampleCount === 0 ? noBenchmarkLabel : deviationLabel}
+          {statusText}
         </p>
       </div>
 

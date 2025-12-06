@@ -151,9 +151,14 @@ export interface NearestZoneInfo {
 export interface SymbolScanResult {
   kind: "ok";
   symbol: SymbolCode;
-  macroTrend: "Bull" | "Bear" | "Neutral";
+  trend: "Bull" | "Bear" | "Neutral"; // macro regime
+  macroTrend: "Bull" | "Bear" | "Neutral"; // alias for clarity
+  latestTrendDay: "Bull" | "Bear" | "Neutral";
+  /** Rolling average score used to determine macro trend */
+  macroTrendScore: number;
   /** Breakdown of bullish vs bearish trend days used to pick macroTrend */
   macroTrendDiagnostics?: MacroTrendDiagnostics;
+  /** Alias for latest trend day (kept for UI backwards compatibility) */
   trendDay: "Bull" | "Bear" | "Neutral";
   alignment:
     | "AlignedLong"
@@ -161,7 +166,7 @@ export interface SymbolScanResult {
     | "CounterLong"
     | "CounterShort"
     | "Neutral";
-  trend: "Bull" | "Bear" | "Neutral";
+  isMacroAligned: boolean;
   atr20: number;
   location: "Discount" | "Mid" | "Premium";
   zones: OcZone[];
@@ -216,6 +221,9 @@ export function isSymbolScanError(
 export const CONFIG = {
   lookback_days: 20, // window for zones & liquidity
   trend_lookback: 10, // days to classify trend
+  macro_trend_window: 20, // number of completed days in the rolling window
+  macro_trend_bull_threshold: 0.25, // min avg score for Bull regime
+  macro_trend_bear_threshold: -0.25, // max avg score for Bear regime
   risk_cap: {
     XAUUSD: 40.0, // ≈ $40 between Entry and SL
     EURUSD: 0.0040, // 40 pips (0.0040 in price)

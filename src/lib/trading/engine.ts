@@ -67,7 +67,8 @@ export async function scanSymbol(
   const {
     macroTrend,
     macroTrendDiagnostics,
-    trendDay,
+    latestTrendDay,
+    macroTrendScore,
     alignment,
     location,
     atr20,
@@ -78,6 +79,10 @@ export async function scanSymbol(
   });
 
   const trend = macroTrend;
+  const trendDay = latestTrendDay;
+  const isMacroAligned =
+    (macroTrend === "Bull" && latestTrendDay === "Bull") ||
+    (macroTrend === "Bear" && latestTrendDay === "Bear");
 
   const pullbackRecords = buildCandlePairPullbacks(
     symbol,
@@ -95,7 +100,11 @@ export async function scanSymbol(
   const prevBar = bars[prevIndex];
   const lastBar = bars[currIndex];
 
-  const { macroTrend: macroTrendPrev, trendDay: trendDayPrev, alignment: alignmentPrev } =
+  const {
+    macroTrend: macroTrendPrev,
+    latestTrendDay: trendDayPrev,
+    alignment: alignmentPrev,
+  } =
     classifyTrend(bars.slice(0, prevIndex + 1), {
       lookbackDays,
       atrWindow,
@@ -243,6 +252,9 @@ export async function scanSymbol(
     trendDay,
     alignment,
     trend,
+    macroTrendScore,
+    latestTrendDay,
+    isMacroAligned,
     atr20,
     location,
     zones,

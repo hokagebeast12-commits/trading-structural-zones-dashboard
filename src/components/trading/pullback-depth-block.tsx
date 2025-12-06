@@ -49,7 +49,7 @@ export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
     ? `Last ${pullback.lookbackDays}d`
     : "No lookback";
   const scenarioLabel = pullback.scenario
-    ? `${pullback.scenario.macroTrendPrev} macro · ${pullback.scenario.trendDayPrev} trend day (${pullback.scenario.alignmentPrev})`
+    ? `Macro trend: ${pullback.scenario.macroTrendPrev} · Latest trend day: ${pullback.scenario.trendDayPrev} (${pullback.scenario.alignmentPrev} bias)`
     : "No scenario context";
 
   return (
@@ -66,7 +66,7 @@ export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
               ({pullback.bucket ?? "N/A"})
             </span>
           </p>
-          <p className="text-[11px] text-slate-400">{scenarioLabel}</p>
+          <p className="text-xs text-slate-400">{scenarioLabel}</p>
         </div>
 
         <p
@@ -139,7 +139,7 @@ export function PullbackDepthBlock({ pullback }: PullbackDepthBlockProps) {
           {lookbackLabel} · {pullback.sampleCount} samples
         </span>
         <span className="text-slate-500">
-          Depth measured as how far the current price retraces into yesterday's candle, compared to historical pullbacks into previous candles after similar trend days and macro trend.
+          Depth shows how far the current price has pulled back into yesterday’s daily candle, as a percentage of yesterday’s full high–low range. 0% = no retrace, 100% = a full retrace to the opposite extreme, and values above 100% mean price has moved beyond yesterday’s range. Typical stats come from past days with the same macro trend and trend-day type.
         </span>
       </div>
     </div>
